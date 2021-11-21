@@ -60,15 +60,15 @@
 
 %%%%%%%%%%%%%%%%%%%%%%% Definiciones básicas %%%%%%%%%%%%%%%%%%%%%%%
 
-\newcommand{\nombreautor}{Nombre Apellido1 Apellido2}
-\newcommand{\nombretutor}{NombreTutor Apellido1 Apellido2}
-\newcommand{\titulotrabajo}{Título del Trabajo de Fin de Grado}
+\newcommand{\nombreautor}{Oscar Nydza Nicpoñ}
+\newcommand{\nombretutor}{Juan Manuel Serrano Hidalgo}
+\newcommand{\titulotrabajo}{Comparativa entre las API de Spark en Scala y Python}
 \newcommand{\escuela}{Escuela Técnica Superior\\de Ingeniería Informática}
 \newcommand{\escuelalargo}{Escuela Técnica Superior de Ingeniería Informática}
 \newcommand{\universidad}{Universidad Rey Juan Carlos}
 \newcommand{\fecha}{Fecha}
-\newcommand{\grado}{Grado en XXXXXXXX}
-\newcommand{\curso}{Curso 20XX-20XX}
+\newcommand{\grado}{Grado en Ingeniería de Computadores}
+\newcommand{\curso}{Curso 2021-2022}
 \newcommand{\logoUniversidad}{logoURJC.pdf} % logoURJC.eps
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -422,9 +422,9 @@ Breve resumen del Trabajo de Fin de Grado (TFG). Recomendable entre 250-300 pala
 \afterpage{\blankpage}
 
 % Índice de tablas (OPCIONAL)
-\listoftables
-\afterpage{\blankpage}
-\addcontentsline{toc}{chapter}{\noindent \listtablename}
+%\listoftables
+%\afterpage{\blankpage}
+%\addcontentsline{toc}{chapter}{\noindent \listtablename}
 
 % Índice de figuras (OPCIONAL)
 \listoffigures
@@ -575,19 +575,19 @@ El objetivo de este documento es proporcionar una plantilla de \LaTeX para TFG. 
 
 
 % Capítulo 3
-\chapter{Contenidos principales}
+\chapter{Descripción Informática}
 \label{chap:contenidos}
 
 
 
 
-\section{Primera sección}
+\section{Fuentes de datos}
 
 % Citar una referencia
 Esto es una referencia bibliográfica \cite{bibex}. Se recomienda leer ``The Not So Short Introduction to \LaTeX'' \cite{Oetiker2007} (existen versiones más modernas).
 
 
-\subsection{Ecuaciones y fórmulas}
+\section{Programación de queries en PySpark}
 
 Gracias a la ecuación de Euler ($e^{ \pm i\theta } = \cos \theta \pm i\sin \theta$) podemos ver la relación entre varias de las constantes matemáticas más importantes:
 \[
@@ -617,7 +617,7 @@ Problema de optimización:
 
 
 
-\subsection{Tablas y figuras}
+\section{Programación de queries en Scala/Spark}
 
 % Insertar una tabla
 \begin{table}
@@ -774,21 +774,18 @@ La figura~\ref{fig:logo_universidad} se utiliza en la portada. \LaTeX ubica auto
   \begin{minipage}{0.45\textwidth}
    \centering
 
-     \includegraphics[clip=true,width=\textwidth]{triangulo_grande_bb.pdf}\\
 
     \footnotesize (a)
   \end{minipage}
   \hfill
   \begin{minipage}{0.45\textwidth}
    \centering
-     \includegraphics[clip=true,width=\textwidth]{triangulos_separados_bb.pdf}\\
 
    \footnotesize (b)
   \end{minipage}
 
     \bigskip
 
-    \includegraphics[clip=true,width=0.5\textwidth]{triangulos_unidos_bb.pdf}\\
     \footnotesize (c)
 
   \caption{Ejemplo con varias figuras. Demostración visual del teorema de Pitágoras. En (a) tenemos un triángulo rectángulo con hipotenusa $c$ y catetos $a$ y $b$. En (b) se muestra tres copias escaladas del mismo triángulo. El verde se ha escalado por $a$, el rojo/rosa por $b$, y el azul por $c$. En (c) se juntan los triángulos de (b) para formar un rectángulo cuya base es $c^{2}$, pero también $a^{2} + b^{2}$. Por tanto, $a^{2} + b^{2} = c^{2}$.}\label{fig:teoremapitagoras}
@@ -798,7 +795,7 @@ La figura~\ref{fig:logo_universidad} se utiliza en la portada. \LaTeX ubica auto
 
 
 
-\section{Segunda sección}
+\section{Despliegue en AWS EMR}
 
 % Nueva página
 Normalmente no tendremos que insertar saltos de página, salvo para forzar que los capítulos empiecen en páginas impares, con \begin{verbatim}\blankpage\end{verbatim} En cualquier caso, podemos introducir un salto de página con el comando \begin{verbatim}\newpage\end{verbatim}.
@@ -852,14 +849,20 @@ En el algoritmo~\ref{alg:AdditionalLouvain} aparece un ejemplo en pseudocódigo.
 
 
 % Nuevo capítulo
-\chapter{Resultados (opcional)}
-\label{sec:resulObtenidos}
+\chapter{Experimentos / Validación}
+\label{sec:expVal}
 
 
-En esta sección se describe los resultados obtenidos en el TFG, en caso de realizar propuestas para su resolución. Puede sustituirse por ejemplos u omitirse.
+En esta sección se describen en detalle las queries realizadas sobre este dataset.
+
 
 \blankpage
 
+\section{Consultas Realizadas}
+
+\subsection{Descripción General}
+
+\section{Análisis de requisitos no funcionales}
 
 
 

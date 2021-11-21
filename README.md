@@ -17,6 +17,7 @@ Para realizar esta comparativa, se pretende realizar las siguientes queries tant
   * Menos carreras sin terminar.
   * Mayor diferencia con respecto a su rival más cercano en puntos.
   * Mayor diferencia con respecto a su rival más cercano en ritmo de carrera (media de tiempo por vuelta).
+* Piloto con más podios a lo largo de su carrera.
 * Temporada más interesante para el espectador.
   * Más pilotos diferentes liderando el mundial.
   * Más cambios de líder del mundial.
