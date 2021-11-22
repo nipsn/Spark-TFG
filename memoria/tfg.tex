@@ -217,7 +217,48 @@ upquote=true,
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\usepackage{listings}
 
+% "define" Scala
+\lstdefinelanguage{scala}{
+  morekeywords={abstract,case,catch,class,def,%
+    do,else,extends,false,final,finally,%
+    for,if,implicit,import,match,mixin,%
+    new,null,object,override,package,%
+    private,protected,requires,return,sealed,%
+    super,this,throw,trait,true,try,%
+    type,val,var,while,with,yield},
+  otherkeywords={=>,<-,<\%,<:,>:,\#,@},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[n]{/*}{*/},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]"""
+}
+
+\usepackage{color}
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+  language=scala,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  frame=single,
+  breaklines=true,
+  breakatwhitespace=true
+  tabsize=3
+}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% Comandos definidos por el autor 
@@ -861,6 +902,88 @@ En esta sección se describen en detalle las queries realizadas sobre este datas
 \section{Consultas Realizadas}
 
 \subsection{Descripción General}
+
+\subsubsection{Piloto más consistente de la temporada 2012}
+En esta query intentaremos averiguar cuál ha sido el piloto más consistente de la temporada 2012. Ya que este término puede resultar ambigüo, en concreto intentaremos averiguar qué piloto tuvo una menor diferencia entre su vuelta más rápida y la media de todas las vueltas del Gran Premio.
+
+Necesitaremos cruzar varias fuentes de datos para esto: 
+
+\begin{compactitem}
+  \item \texttt{races.csv}
+  \item \texttt{lap$\_$times.csv}
+  \item \texttt{drivers.csv}
+  \item \texttt{results.csv}
+\end{compactitem}
+
+Para filtrar cualquier query por temporada o por rango de temporadas, tenemos que filtrar la tabla \texttt{races} según la columna \texttt{year}. En nuestro caso, filtramos la tabla para la temporada \texttt{2012}.
+
+Una vez tenemos todas las carreras de la temporada en cuestión, necesitamos hallar el tiempo medio por vuelta de cada piloto en cada Gran Premio. En la tabla \texttt{lap$\_$times.csv} existe una columna llamada \texttt{milliseconds}, que denota los milisegundos de la vuelta dada. Haciendo un right join, podemos obtener todas las vueltas dadas en una temporada. Esta tabla resultante debe ser agrupada por \texttt{driverId} y \texttt{raceId}, para después hacer la media de la columna \texttt{milliseconds}.
+
+Para obtener la vuelta más rápida de cada piloto en cada carrera, debemos usar la tabla \texttt{results}, que tiene una entrada por cada piloto y Gran Premio que contiene además su vuelta más rápida según el formato \texttt{MM:ss.mmm}, siendo \texttt{MM} los minutos, \texttt{ss} los segundos y \texttt{mmm} los milisegundos. Para convertir este formato a milisegundos y viceversa, he creado dos UDFs llamadas \texttt{lapTimeToMsUDF} y \texttt{msTolapTimeUDF}.
+
+
+\begin{lstlisting}
+val lapTimeToMs = (time: String) => {
+  val regex = """([0-9]|[0-9][0-9]):([0-9][0-9])\.([0-9][0-9][0-9])""".r
+  time match {
+    case regex(min,sec,ms) => min.toInt * 60 * 1000 + sec.toInt * 1000 + ms.toInt
+    case "\\N" => 180000
+  }  
+}: Long
+  \end{lstlisting}
+
+\begin{lstlisting}
+val msToLapTime = (time: Long) => {
+  val mins = time / 60000
+  val secs = (time - mins*60000)/1000
+  val ms = time - mins*60000 - secs*1000
+    
+  val formattedSecs = if((secs / 10).toInt == 0) "0" + secs else secs
+  // if ms = 00x -> "0"+"0"+x . if ms = 0xx -> "0"+ms
+  val formattedMs = if((ms / 100).toInt == 0) "0" + (if((ms / 10).toInt == 0) "0" + ms else ms) else ms
+  mins + ":" + formattedSecs + "." + formattedMs    
+}: String
+\end{lstlisting}
+
+La función \texttt{lapTimeToMsUDF} debe tener en cuenta también que hay entradas que no tienen un tiempo válido, sino que contienen el string \texttt{"\textbackslash\textbackslash N"}. Esto se debe a que hay ocasiones en los que un piloto no termina la vuelta. Un ejemplo sería si se retirase de la carrera en esa vuelta. Se ha decidido sumar 3 minutos (180000 ms) como penalización.
+
+Una vez tenemos estas dos funciones, ya podemos comparar la media de las vueltas con la vuelta más rápida de cada piloto en cada uno de los circuitos. Se resta al tiempo medio la vuelta más rápida (ambos en milisegundos) y se obtiene su valor absoluto para evitar valores negativos. Este valor en milisegundos se convierte al formato de tiempo de vuelta con la UDF correspondiente y tras esto se ordena por diferencial en tiempo de vuelta de manera ascendente.
+
+Haciendo análisis de los datos obtenidos, se observa que el piloto con id \texttt{816} solo participó en una carrera, y por lo tanto no se le tendrá en cuenta.
+
+Solo quedaría formatear los datos de salida. Para ello primero se hace un join con la tabla de pilotos, lo cual nos permite concatenar nombre y apellido de cada uno de los participantes en una nueva columna. En esta caso, como solo nos interesa el piloto y su diferencial, estas serán las únicas columnas que dejaremos en el DataFrame.
+
+INSERTAR IMAGEN DE RESULTADO 
+
+Lo interesante de esta query es que no solo vale para esta temporada. En el dataset que trato, se tiene información de tiempos de vuelta desde el año 1996, así que con un poco de análisis previo para descartar pilotos que hayan participado en un numero bajo de carreras sería posible adaptar esta query.
+
+
+\subsubsection{Dominio de fabricantes en la década de los 90}
+
+Con esta query se pretende hallar qué fabricante ha sido el más dominante en la década de los 90. En concreto intentaremos hallar el número de mundiales ganados y el número de carreras ganadas.
+
+Se usarán las siguientes fuentes de datos:
+\begin{compactitem}
+  \item \texttt{races.csv}
+  \item \texttt{constructor$\_$standings.csv}
+  \item \texttt{constructors.csv}
+\end{compactitem}
+
+Al igual que en la query anterior, si queremos fijar nuestra atención en un periodo de tiempo, tenemos que hacerlo filtrando la columna \texttt{year} de la \texttt{races.csv}. En este caso, necesitamos todas las carreras entre el año 1990 y el año 1999.
+
+Una vez obtenidas todas las carreras de la década, tenemos que obtener la última carrera de cada temporada. Esto es debido a que en \newline\texttt{constructor$\_$standings.csv} tenemos la clasificación resultante al final de cada carrera. Para ello, usaremos crearemos una ventana en la que particionaremos los datos por año y que usaremos con la función \texttt{max()} sobre la columna \texttt{round}, que nos indica el índice de la carrera, es decir, la primera carrera de la temporada tendrá \texttt{round === 1} para crear una columna llamada \texttt{max} en la que guardaremos el índice de la última carrera de la temporada. Finalmente, filtraremos los datos para quedarnos con aquellos en los que la columna \texttt{round === max}.
+
+Tras esto último, unimos las tabla \texttt{constructor$\_$standings.csv} con la recién obtenida para quedarnos con los resultados en las últimas carreras y filtramos según la columna \texttt{position === 1} para quedarnos con los ganadores. Teniendo esto, podemos ver también que la columna \texttt{wins} nos proporciona el número de victorias de cada escudería en esa temporada, así que, creando una ventana en la que particionemos por fabricante podemos hallar tanto la suma de victorias como el conteo de apariciones de cada una. 
+
+Pasando ya a la presentación de los datos, se filtrarían los constructores duplicados y se ordenarían los datos según el total de campeonatos ganados primero y, en caso de empate, por número de victorias. Además, se hace un join con la tabla de constructores para obtener su nombre.
+
+INSERTAR CAPTURA DE PANTALLA
+
+Lo interesante de esta query es que se puede usar para cualquier periodo de tiempo. Podemos averiguar por ejemplo qué fabricante ha sido el más dominante en toda la historia de la competición y qué constructor ha dominado ciertos años concretos.
+
+INSERTAR CAPTURA DE PANTALLA DE DOMINIO HISTORICO
+
+
 
 \section{Análisis de requisitos no funcionales}
 
