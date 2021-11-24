@@ -904,7 +904,7 @@ En esta sección se describen en detalle las queries realizadas sobre este datas
 \subsection{Descripción General}
 
 \subsubsection{Piloto más consistente de la temporada 2012}
-En esta query intentaremos averiguar cuál ha sido el piloto más consistente de la temporada 2012. Ya que este término puede resultar ambigüo, en concreto intentaremos averiguar qué piloto tuvo una menor diferencia entre su vuelta más rápida y la media de todas las vueltas del Gran Premio.
+En esta query intentaremos averiguar cuál ha sido el piloto más consistente de la temporada 2012. Ya que este término puede resultar ambigüo, en concreto intentaremos averiguar qué piloto tuvo una menor diferencia entre la media de sus vueltas rápidas del campeonato y la media de todas las vueltas de todos los Grandes Premios de la temporada.
 
 Necesitaremos cruzar varias fuentes de datos para esto: 
 
@@ -917,9 +917,9 @@ Necesitaremos cruzar varias fuentes de datos para esto:
 
 Para filtrar cualquier query por temporada o por rango de temporadas, tenemos que filtrar la tabla \texttt{races} según la columna \texttt{year}. En nuestro caso, filtramos la tabla para la temporada \texttt{2012}.
 
-Una vez tenemos todas las carreras de la temporada en cuestión, necesitamos hallar el tiempo medio por vuelta de cada piloto en cada Gran Premio. En la tabla \texttt{lap$\_$times.csv} existe una columna llamada \texttt{milliseconds}, que denota los milisegundos de la vuelta dada. Haciendo un right join, podemos obtener todas las vueltas dadas en una temporada. Esta tabla resultante debe ser agrupada por \texttt{driverId} y \texttt{raceId}, para después hacer la media de la columna \texttt{milliseconds}.
+Una vez tenemos todas las carreras de la temporada en cuestión, necesitamos hallar el tiempo medio por vuelta de cada piloto en cada Gran Premio. En la tabla \texttt{lap$\_$times.csv} existe una columna llamada \texttt{milliseconds}, que denota los milisegundos de la vuelta dada. Haciendo un right join, podemos obtener todas las vueltas dadas en una temporada. Usando una ventana que particione los datos por piloto, haremos la media de la columna \texttt{milliseconds} para hallar la media de toda la temporada.
 
-Para obtener la vuelta más rápida de cada piloto en cada carrera, debemos usar la tabla \texttt{results}, que tiene una entrada por cada piloto y Gran Premio que contiene además su vuelta más rápida según el formato \texttt{MM:ss.mmm}, siendo \texttt{MM} los minutos, \texttt{ss} los segundos y \texttt{mmm} los milisegundos. Para convertir este formato a milisegundos y viceversa, he creado dos UDFs llamadas \texttt{lapTimeToMsUDF} y \texttt{msTolapTimeUDF}.
+Para obtener la media de las vueltas rápidas de cada piloto, debemos usar la tabla \texttt{results}, que tiene una entrada por cada piloto y Gran Premio que contiene además su vuelta más rápida según el formato \texttt{MM:ss.mmm}, siendo \texttt{MM} los minutos, \texttt{ss} los segundos y \texttt{mmm} los milisegundos. Para convertir este formato a milisegundos y viceversa, he creado dos UDFs llamadas \texttt{lapTimeToMs} y \texttt{msTolapTime}.
 
 
 \begin{lstlisting}
@@ -945,17 +945,38 @@ val msToLapTime = (time: Long) => {
 }: String
 \end{lstlisting}
 
-La función \texttt{lapTimeToMsUDF} debe tener en cuenta también que hay entradas que no tienen un tiempo válido, sino que contienen el string \texttt{"\textbackslash\textbackslash N"}. Esto se debe a que hay ocasiones en los que un piloto no termina la vuelta. Un ejemplo sería si se retirase de la carrera en esa vuelta. Se ha decidido sumar 3 minutos (180000 ms) como penalización.
+La función \texttt{lapTimeToMs} debe tener en cuenta también que hay entradas que no tienen un tiempo válido, sino que contienen el string \texttt{"\textbackslash\textbackslash N"}. Esto se debe a que hay ocasiones en los que un piloto no termina la vuelta. Un ejemplo sería si se retirase de la carrera en esa vuelta. Se ha decidido sumar 3 minutos (180000 ms) como penalización.
 
-Una vez tenemos estas dos funciones, ya podemos comparar la media de las vueltas con la vuelta más rápida de cada piloto en cada uno de los circuitos. Se resta al tiempo medio la vuelta más rápida (ambos en milisegundos) y se obtiene su valor absoluto para evitar valores negativos. Este valor en milisegundos se convierte al formato de tiempo de vuelta con la UDF correspondiente y tras esto se ordena por diferencial en tiempo de vuelta de manera ascendente.
+Una vez tenemos estas dos funciones, ya podemos el tiempo medio de vueltas rápidas. De nuevo particionamos los datos según el piloto y hacemos la media de la columna \texttt{fastestLapTime}. Este valor en milisegundos se convierte al formato de tiempo de vuelta con la UDF correspondiente y tras esto se ordena por el diferencial hallado de forma ascendente.
 
-Haciendo análisis de los datos obtenidos, se observa que el piloto con id \texttt{816} solo participó en una carrera, y por lo tanto no se le tendrá en cuenta.
+Además de esto, haciendo un análisis previo se observó que había pilotos que habían completado pocas carreras en comparación al resto, ya que a que sustituían a algún otro piloto debido a algún accidente. Se decidió filtrar estos outliers de forma que, independientemente del periodo de tiempo sobre el que queramos lanzar esta query, el resultado fuese significativo. Para ello se usó la tabla obtenida con todas las carreras en la temporada y, a partir de la columna \texttt{lap} de la tabla \texttt{lap$\_$times} se realizó un conteo de todas las vueltas dadas por cada piloto utilizando, de nuevo, una ventana de datos particionada por piloto.
+
+De este DataFrame queremos obtener tanto la cuenta de vueltas por piloto como el numero total de pilotos que han participado en la temporada, que haremos de la siguiente manera:
+\begin{lstlisting}
+val (distinctDrivers, allLaps) = lapCount
+  .agg(
+      countDistinct("driverID"),
+      count(col("lap"))
+  ).as[(BigInt, BigInt)]
+  .collect()(0)
+
+val avgLapsThisPeriod = allLaps.toInt / distinctDrivers.toInt
+\end{lstlisting}
+
+Habiendo obtenido la media de vueltas por piloto de la temporada, podemos filtrar aquellos cuyo conteo sea inferior.
+
 
 Solo quedaría formatear los datos de salida. Para ello primero se hace un join con la tabla de pilotos, lo cual nos permite concatenar nombre y apellido de cada uno de los participantes en una nueva columna. En esta caso, como solo nos interesa el piloto y su diferencial, estas serán las únicas columnas que dejaremos en el DataFrame.
 
+Sobre qué piloto fue el más consistente en la temporada 2012, este análisis nos dice lo siguiente:
+
 INSERTAR IMAGEN DE RESULTADO 
 
-Lo interesante de esta query es que no solo vale para esta temporada. En el dataset que trato, se tiene información de tiempos de vuelta desde el año 1996, así que con un poco de análisis previo para descartar pilotos que hayan participado en un numero bajo de carreras sería posible adaptar esta query.
+Lo interesante de esta query es que no solo vale para esta temporada. En el dataset que trato se tiene información de tiempos de vuelta desde el año 1996, así que podemos especificar cualquier conjunto de temporadas, ya sean consecutivas, salteadas o solamente una temporada en concreto.
+
+Veamos cuál ha sido el piloto más consistente desde el año 1996:
+
+INSERTAR IMAGEN DEL RESULTADO DESDE 1996 HASTA LA ACTUALIDAD
 
 
 \subsubsection{Dominio de fabricantes en la década de los 90}
