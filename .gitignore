@@ -2,3 +2,20 @@
 /out
 /notebooks/.ipynb_checkpoints
 
+.metals/metals.h2.db
+.gitignore
+.metals/metals.lock.db
+.metals/metals.log
+.vscode/settings.json
+.gitignore
+memoria/tfg.aux
+memoria/tfg.bbl
+memoria/tfg.blg
+memoria/tfg.fdb_latexmk
+memoria/tfg.fls
+memoria/tfg.lof
+memoria/tfg.log
+memoria/tfg.lol
+memoria/tfg.out
+memoria/tfg.synctex.gz
+memoria/tfg.toc
