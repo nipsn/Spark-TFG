@@ -1,9 +1,10 @@
-/data
 /out
 /notebooks/.ipynb_checkpoints
 
+/code/scala-queries/.idea/
+
+
 .metals/metals.h2.db
-.gitignore
 .metals/metals.lock.db
 .metals/metals.log
 .vscode/settings.json

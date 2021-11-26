@@ -8,10 +8,10 @@ val sparkVersion = "2.4.3"
 
 
 libraryDependencies := Seq(
-//  "org.apache.spark" %% "spark-core" % sparkVersion,
-//  "org.apache.spark" %% "spark-sql" % sparkVersion,
-   "org.apache.spark" %% "spark-core" % sparkVersion % Provided,
-   "org.apache.spark" %% "spark-sql" % sparkVersion % Provided,
+  "org.apache.spark" %% "spark-core" % sparkVersion,
+  "org.apache.spark" %% "spark-sql" % sparkVersion,
+//   "org.apache.spark" %% "spark-core" % sparkVersion % Provided,
+//   "org.apache.spark" %% "spark-sql" % sparkVersion % Provided,
   "com.github.pureconfig" %% "pureconfig" % "0.12.0",
   "com.github.scopt" %% "scopt" % "3.7.1",
   "org.scalatest" %% "scalatest" % "3.0.8" % Test,

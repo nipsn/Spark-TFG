@@ -1,14 +1,44 @@
 package com.company.project.main
-import org.apache.spark.sql.{DataFrame, SparkSession, functions}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 
 object ConsistencyProcessor {
+
+  def apply(spark: SparkSession, seasons: Range.Inclusive): DataFrame = {
+    this.apply(spark, seasons: _*)
+  }
+
+
   def apply(spark: SparkSession, seasons: Int *): DataFrame = {
+    val races = spark.read.format("csv")
+      .option("header", "true")
+      .option("sep", ",")
+      .load("data/races.csv")
+      .withColumn("year", col("year").cast(IntegerType))
+      // para filtrar por temporadas hay que hacerlo por la columna "year"
+      .where(col("year").isInCollection(seasons))
+
+    computeConsistency(spark, races)
+  }
+
+  def apply(spark: SparkSession): DataFrame = {
+    val races = spark.read.format("csv")
+      .option("header", "true")
+      .option("sep", ",")
+      .load("data/races.csv")
+      .withColumn("year", col("year").cast(IntegerType))
+      .where(col("year") >= 1996)
+
+    computeConsistency(spark, races)
+  }
+
+  private def computeConsistency(spark: SparkSession, races: DataFrame): DataFrame = {
     import spark.implicits._
 
     val lapTimeToMs = (time: String) => {
+      // TODO: algunos "laptimes" no hacen match en esta regex en el año 2009
       val regex = """([0-9]|[0-9][0-9]):([0-9][0-9])\.([0-9][0-9][0-9])""".r
       time match {
         case regex(min,sec,ms) => min.toInt * 60 * 1000 + sec.toInt * 1000 + ms.toInt
@@ -34,14 +64,6 @@ object ConsistencyProcessor {
     spark.udf.register("msToLapTime", msToLapTimeUDF)
 
 
-    val races = spark.read.format("csv")
-      .option("header", "true")
-      .option("sep", ",")
-      .load("data/races.csv")
-      .withColumn("year", col("year").cast(IntegerType))
-      // para filtrar por temporadas hay que hacerlo por la columna "year"
-      .where(col("year").isInCollection(seasons))
-
     val driverWindow = Window.partitionBy("driverId")
 
     val avg_lap_times = spark.read.format("csv")
@@ -56,6 +78,7 @@ object ConsistencyProcessor {
       .withColumn("avgMs", avg(col("milliseconds")).over(driverWindow))
       .dropDuplicates("driverId")
       .select("driverId", "avgMs")
+
 
     val drivers = spark.read.format("csv")
       .option("header", "true")
@@ -97,6 +120,7 @@ object ConsistencyProcessor {
       .load("data/results.csv")
       // filtro por temporada
       .join(races, Seq("raceId"), "right")
+      .na.drop(Seq("fastestLapTime"))
       // paso la vuelta rapida de tiempo por vuelta a ms
       .withColumn("fastestLapTimeMs", lapTimeToMsUDF(col("fastestLapTime")))
       // saco la media de vueltas rapidas
