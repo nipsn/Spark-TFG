@@ -15,9 +15,9 @@ libraryDependencies := Seq(
   "com.github.pureconfig" %% "pureconfig" % "0.12.0",
   "com.github.scopt" %% "scopt" % "3.7.1",
   "org.scalatest" %% "scalatest" % "3.0.8" % Test,
-  "com.holdenkarau" %% "spark-testing-base" % s"${sparkVersion}_0.12.0" % Test
-)
+  "com.holdenkarau" %% "spark-testing-base" % s"${sparkVersion}_0.12.0" % Test,
 
+  "co.theasi" % "plotly_2.11" % "0.2.0")
 assemblyMergeStrategy in assembly := {
   case PathList("org","aopalliance", xs @ _*) => MergeStrategy.last
   case PathList("javax", "inject", xs @ _*) => MergeStrategy.last
