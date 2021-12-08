@@ -519,7 +519,7 @@ Breve resumen del Trabajo de Fin de Grado (TFG). Recomendable entre 250-300 pala
 
 % Capítulo 1
 \chapter{Introducción}
-
+\newpage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -594,23 +594,32 @@ Una posible estructura de la memoria final asociada con cada TFG podría ser la 
 
 % Capítulo 2
 \chapter{Objetivos}
+\newpage
 
+El principal objetivo de este Trabajo de Fin de Grado realizar una comparativa entre las API de Spark de Scala y de Python. Sin embargo, también existen otros objetivos que irán surgiendo mientras se avanza sobre el principal. Entre ellos estarían:
 
-Objetivos generales y específicos del trabajo.
+\begin{enumerate}
+  \item Aprender Scala como lenguaje funcional.
+  \item Aprender Spark como API tanto para Scala como para Python.
+  \item Visualizar de los resultados de las queries realizadas usando Plotly. 
+  \item Migrar queries desde PySpark a Scala Spark.
+  \item Medir y comparar el rendimiento de ambas API.
+  \item Realizar queries a un cluster AWS EMR.
+\end{enumerate}
 
+Como objetivo adicional y debido a que se usará un dataset de la Fórmula 1, se buscará encontrar la siguiente información:
 
-\section{Primera sección}
+\begin{compactitem}
+  \item Piloto más consistente en un periodo de tiempo concreto.
+  \item Piloto más dominante a lo largo de su carrera.
+  \item Fabricante más dominante en la década de los 90.
+  \item En base a lo anterior, cuál ha sido el peor año de esa marca en ese periodo de tiempo.
+  \item Fabricante con las mejores paradas a boxes en la década de los 2010.
+  \item Fabricante con más problemas de fiabilidad en la década de los 2000.
+  \item Temporada más interesante para el espectador.
+\end{compactitem}
 
-En este capítulo se pueden añadir secciones, pero no son obligatorias en capítulos cortos.
-
-\section{Segunda sección}
-
-El objetivo de este documento es proporcionar una plantilla de \LaTeX para TFG. No debe usarse como sustituto de la normativa de TFG aprobada por la ETSII.
-
-
-\blankpage
-
-
+Además también se buscará hacer análisis de una temporada en concreta, de un piloto o de un fabricante sacando distintas métricas para cada uno de ellos y siendo capaces de visualizarlos gráficamente.
 
 
 
@@ -618,292 +627,95 @@ El objetivo de este documento es proporcionar una plantilla de \LaTeX para TFG. 
 % Capítulo 3
 \chapter{Descripción Informática}
 \label{chap:contenidos}
-
-
-
+\newpage
 
 \section{Fuentes de datos}
 
-% Citar una referencia
-Esto es una referencia bibliográfica \cite{bibex}. Se recomienda leer ``The Not So Short Introduction to \LaTeX'' \cite{Oetiker2007} (existen versiones más modernas).
+Como se mencionó brevemente en el apartado de Objetivos, se ha utilizado un conjunto de datos de la Fórmula 1. Concretamente, este dataset tiene 13 tablas que proporcionan información sobre distintos aspectos de esta competición. Estas tablas son:
+
+\begin{compactitem}
+  \item \texttt{circuits}
+  \item \texttt{constructor$\_$results}
+  \item \texttt{constructor$\_$standings}
+  \item \texttt{constructors}
+  \item \texttt{driver$\_$standings}
+  \item \texttt{lap$\_$times}
+  \item \texttt{pit$\_$stops}
+  \item \texttt{qualifying}
+  \item \texttt{races}
+  \item \texttt{results}
+  \item \texttt{seasons}
+  \item \texttt{status}
+  \item \texttt{drivers}
+\end{compactitem}
+
+\subsection{Tablas de entrada}
+
+En este apartado se proporcionará una descripción de los datos más útiles que contiene cada una de las tablas de entrada.
+
+\subsubsection{Tabla \texttt{circuits}}
+
+Esta tabla contiene información sobre todos los circuitos en los que se ha llevado a cabo un Gran Premio. Las columnas más interesantes son el nombre del circuito, una referencia textual y la localización.
+
+\subsubsection{Tabla \texttt{constructor$\_$results}}
+
+Esta tabla nos proporciona información sobre los resultados de las carreras en base a los constructores.
+
+\subsubsection{Tabla \texttt{constructor$\_$standings}}
+
+Esta tabla contiene información sobre la clasificación de constructores. Como particularidad, tiene una entrada por carrera y constructor participante. Por tanto, podríamos ver cómo ha ido cambiando la clasificación de constructores a lo largo del campeonato.
+
+Las columnas más interesantes son el identificador de la carrera, identificador del constructor, los puntos, la posición en la clasificación y las victorias hasta ese punto.
+
+\subsubsection{Tabla \texttt{constructors}}
+
+Esta tabla contiene información sobre los distintos constructores que han participado en algún campeonato mundial de Fórmula 1. Las columnas más interesantes son el id de constructor, la referencia, el nombre del constructor y la nacionalidad.
+
+\subsubsection{Tabla \texttt{driver$\_$standings}}
+
+Similar a la tabla de clasificación de constructores, pero para pilotos. Tenemos las mismas columnas, salvo que en lugar de tener un id de constructor, lo tenemos de piloto.
+
+\subsubsection{Tabla \texttt{lap$\_$times}}
+
+Esta tabla es una de las más interesantes, ya que nos da todos los tiempos de vuelta de todos los pilotos desde que hay registros. Esto es, desde parte de 1996 y 1997 al completo.
+
+Las columnas más llamativas podrían ser el id de carrera, el de piloto, la vuelta en cuestión, la posición y el tiempo en milisegundos.
+
+\subsubsection{Tabla \texttt{pit$\_$stops}}
+
+Esta tabla contiene información de las paradas en boxes. Las columnas más interesantes son los id de carrera y piloto, el índice de parada (si es la primera, segunda, etc), la vuelta en la que se hace y la duración en milisegundos.
+
+\subsubsection{Tabla \texttt{qualifying}}
+
+Esta tabla nos da información sobre los resultados de todas las rondas de clasificación. La columnas más interesantes son la posición final y los tiempos en Q1, Q2 y Q3. 
+
+\subsubsection{Tabla \texttt{races}}
+
+Esta tabla contiene información sobre todas las carreras celebradas en la historia de la competición. Contiene columnas como el id del circuito, el nombre del Gran Premio, la fecha y el año en el que se celebró. Esta última quizá sea la más útil de todo el dataset, ya que es la única forma de filtrar las carreras o los resultados por temporada.
+
+\subsubsection{Tabla \texttt{results}}
+
+Esta tabla es similar a la de resultados por constructor, pero para pilotos. Es la tabla más completa de todas, ya que nos proporciona una entrada por piloto y carrera con información relevante de cómo se ha desarrollado la misma. Las columnas más interesantes pueden ser la posición de salida y la posición final, los puntos ,las vueltas dadas, la vuelta más rápida, la velocidad más rápida y, en el caso de que haya habido algún incidente, el id del estado.
+
+\subsubsection{Tabla \texttt{seasons}}
+
+Quizá se trate de la tabla menos útil, ya que solamente contiene una columna con el año y otra con una url a un artículo de Wikipedia para cada entrada.
+
+\subsubsection{Tabla \texttt{status}}
+
+Esta tabla nos da información sobre los estados en los que ha podido acabar la carrera un piloto determinado. Contiene un identificador y el estado en cuestión.
+
+\subsubsection{Tabla \texttt{drivers}}
+
+Contiene información sobre todos los pilotos que han competido a lo largo de la historia. En concreto la información más relevante puede ser el nombre y apellido, el código, la fecha de nacimiento y la nacionalidad.
 
 
 \section{Programación de queries en PySpark}
 
-Gracias a la ecuación de Euler ($e^{ \pm i\theta } = \cos \theta \pm i\sin \theta$) podemos ver la relación entre varias de las constantes matemáticas más importantes:
-\[
-    e^{i\pi} + 1 = 0.
-\]
-
-
-% Fórmula numerada
-Si una ecuación se va a referenciar es necesario numerarla:
-\begin{eqnarray}
-\label{eq:schemeP}
- \Phi (k)=\dfrac{2}{|R(k)|(|R(k)|-1)} \underset{i,j \in R(k)}{\sum} a_{ij}.
-\end{eqnarray}
-Posteriormente se hace referencia a la ecuación a través de su etiqueta (label). Por ejemplo, la anterior ecuación \eqref{eq:schemeP}.
-
-
-
-Problema de optimización:
-\begin{equation}\label{eq:LP1}
-\begin{array}{cl}
-  \displaystyle \begin{array}{c}\mathrm{minimizar} \\ \mathbf{t} \in \mathbb{R}^{n}, \  \mathbf{p} \in \mathbb{R}^{m} \end{array} & \hspace{-0.2cm} \begin{array}{c} \mathbf{1}^{\transpuesta}\mathbf{t} \\ \mbox{} \end{array}  \\
-  & \vspace{-0.4cm} \\ % línea (fila) en blanco, pero la hacemos estrecha con el comando vspace
-  \mbox{sujeto a} & -\mathbf{t} \preceq  \mathbf{V}\mathbf{p} - \mathbf{x}  \preceq  \mathbf{t},\\
- \end{array}
-\end{equation}
-
-
-
 
 \section{Programación de queries en Scala/Spark}
 
-% Insertar una tabla
-\begin{table}
-  \centering
-  \caption{Título de la tabla.}
-  \label{tab:una_tabla}
-
-\begin{footnotesize}
-\renewcommand{\arraystretch}{1.5} % Para cambiar la separación entre filas (1 por defecto)
-\begin{tabular}{ccccccccccc}
-  \hline
-   & Subs. & Students & A & PE & WA & RE & CTE & IF & TLE & All\\
-  \hline
-Ex. 1 & 104 & 44 & 1.27    &   0       &   0.55    &   0.23    &   0.20    &   0.11    &   0     & 2.36  \\
-Ex. 2 & 118 & 37 & 0.92    &   0       &   0.92    &   0.27    &   0.49    &   0.59    &   0     & 3.19  \\
-Ex. 3 & 100 & 28 & 1.21    &   0.39    &   1.18    &   0.54    &   0.14    &   0.07    &   0.04  & 3.57  \\
-Ex. 4 & 78  & 25 & 1.08    &   0.84    &   0.52    &   0.40    &   0.24    &   0.04    &   0     & 3.12  \\
-Ex. 5 & 116 & 31 & 1.48    &   0.10    &   0.77    &   0.32    &   0.42    &   0.19    &   0.45  & 3.74  \\
-Ex. 6 & 213 & 32 & 1.06    &   0.34    &   3.81    &   0.56    &   0.69    &   0.06    &   0.13  & 6.66  \\
-Ex. 7 & 116 & 34 & 1.35    &   0.38    &   0.38    &   0.68    &   0.62    &   0       &   0     & 3.41  \\
-  \hline
-Average & 120.7 & 33 & 1.20 &  0.26 &  1.14 &  0.42 &  0.40 &  0.16 &  0.08 & 3.66 \\
-  \hline
- \end{tabular}
-\end{footnotesize}
-
-\end{table}
-
-
-
-
-
-
-
-
-
-\begin{sidewaystable}
-  \centering
-  \caption{Tabla rotada. Factor groupings for the Mooshak questionnaire.}\label{tab:factor_analysis}
-
-\renewcommand{\arraystretch}{1.1}
-\begin{scriptsize}
- \begin{tabular}{clcc}
-   \hline
-   Factor & \textbf{Interpretation} / Items$^{*}$ (loadings)  & Median & Mode \\
-   \hline
-   \hline
-    1 & \multicolumn{3}{l}{\textbf{Students' perception of Mooshak towards its helpfulness in learning} } \\
-   \hline
-    (21.17\%) & m10. Mooshak has forced me to implement programs more carefully $(0.849)$ & 4 & 4 \\
-    $\alpha$ = 0.922 & m6.  Mooshak has helped me improve as a programmer $(0.819)$ & 3 & 4 \\
-     & m5.  Mooshak has made me more aware of the need to write correct code $(0.781)$ & 3 & 3\\
-     & m1. Mooshak has forced me to program more responsibly $(0.713)$ & 3 & 3 \\
-     & m15. The specifications regarding the exercises used with Mooshak are adequate $(0.687)$ & 3 & 3 \\
-     & m18. Mooshak helps to measure my current programming skills $(0.680)$ & 2.5 & 3 \\
-   \hline
-%   \multicolumn{4}{c}{} \vspace{-0.2cm}\\
-%   \hline
-    2 & \multicolumn{3}{l}{\textbf{Disposition towards using Mooshak} } \\
-   \hline
-    (17.93\%) & m24. I would be willing to participate in a programming contest using Mooshak, with similar exercises to the ones & 2 & 1 \\
-    $\alpha$ = 0.897 & seen throughout the course $(0.807)$ & & \\
-    & m13. Using Moohak in the final exams is a good idea $(0.748)$ & 2 & 1 \\
-    & m14. I would like to use Mooshak or a similar tool in the future $(0.734)$ & 3 & 1 \\
-    & m17. Knowing Mooshak can motivate me to take part in a programming contest $(0.655)$ & 2 & 1\\
-    & m9. It would have been useful to use Mooshak from the first programming course $(0.527)$ & 2.5 & 1\\
-     & m16. Using Mooshak in the course has been interesting $(0.522)$ & 3 & 4 \\
-   \hline
-%   \multicolumn{4}{c}{} \vspace{-0.2cm}\\
-%   \hline
-    3 & \multicolumn{3}{l}{\textbf{Effect of Mooshak's feedback in the tool's usefulness} } \\
-   \hline
-    (14.84\%) & m12. Mooshak's feedback is adequate $(0.832)$ & 2 & 1\\
-    $\alpha$ = 0.836 & m3. Using Mooshak has increased my workload considerably $(0.693)$ & 4 & 4 \\
-     & m7.  If Mooshak does not accept my code I feel motivated to find and fix the errors $(0.691)$ & 2 & 3 \\
-     & m8.  In general, using Mooshak has been a good idea $(0.666)$ & 3 & 4 \\
-   \hline
-%   \multicolumn{4}{c}{} \vspace{-0.2cm}\\
-%   \hline
-    4 & \multicolumn{3}{l}{\textbf{Mooshak's effect on persistence} } \\
-   \hline
-    (11.20\%) & m23. When Mooshak does not accept my code I get discouraged and I abandon the exercise $(0.848)$ & 3 & 3 \\
-    $\alpha$ = 0.705 & m22. Mooshak has been a waste of time $(0.597)$ & 2 & 2 \\
-    & m25. Once a program has passed Mooshak's tests, I rewrite it in order to enhance it $(0.559)$ & 2 & 2 \\
-   \hline
-%   \multicolumn{4}{c}{} \vspace{-0.2cm}\\
-%   \hline
-   5 & \multicolumn{3}{l}{\textbf{Students' perception of Mooshak's features} } \\
-   \hline
-    (10.87\%) & m20. Even if it is not related to the grade, I feel satisfied if I am one of the first students to complete an exercise $(0.729)$ & 2 & 2\\
-   $\alpha$ = 0.742  & m19. I value the fact that a tool like Mooshak returns feedback in real time about the correction of my programs $(0.650)$ & 3.5 & 4 \\
-   \hline
-%   \multicolumn{4}{c}{} \vspace{-0.2cm}\\
-%   \hline
-\multicolumn{4}{l}{\scriptsize $^{*}$Measured on a 5-point Likert scale (1: strongly disagree; 2: disagree; 3: neutral; 4: agree; 5: strongly agree).}
-  \end{tabular}
-\end{scriptsize}
-\end{sidewaystable}
-
-
-
-\begin{table}
-  \centering
-
-\begin{small}
-\begin{tabular}{|l|l|l|l|}\hline
-  \multirow{10}{*}{numeric literals} & \multirow{5}{*}{integers} & in decimal & \verb|8743| \\ \cline{3-4}
-  & & \multirow{2}{*}{in octal} & \verb|0o7464| \\ \cline{4-4}
-  & & & \verb|0O103| \\ \cline{3-4}
-  & & \multirow{2}{*}{in hexadecimal} & \verb|0x5A0FF| \\ \cline{4-4}
-  & & & \verb|0xE0F2| \\ \cline{2-4}
-  & \multirow{5}{*}{fractionals} & \multirow{5}{*}{in decimal} & \verb|140.58| \\ \cline{4-4}
-  & & & \verb|8.04e7| \\ \cline{4-4}
-  & & & \verb|0.347E+12| \\ \cline{4-4}
-  & & & \verb|5.47E-12| \\ \cline{4-4}
-  & & & \verb|47e22| \\ \cline{1-4}
-  \multicolumn{3}{|l|}{\multirow{3}{*}{char literals}} & \verb|'H'| \\ \cline{4-4}
-  \multicolumn{3}{|l|}{} & \verb|'\n'| \\ \cline{4-4}          %% here
-  \multicolumn{3}{|l|}{} & \verb|'\x65'| \\ \cline{1-4}        %% here
-  \multicolumn{3}{|l|}{\multirow{2}{*}{string literals}} & \verb|"bom dia"| \\ \cline{4-4}
-  \multicolumn{3}{|l|}{} & \verb|"ouro preto\nmg"| \\ \cline{1-4}          %% here
-\end{tabular}
-\end{small}
-
-  \caption{Tabla con ``multicolumnas'' y ``multifilas''.}\label{tab:tablacompleja}
-\end{table}
-
-
-
-
-
-% Insertar una figura
-\begin{figure}
-  \centering
-  \includegraphics[width=0.75\textwidth,clip=true]{\logoUniversidad}
-  \caption{Logo de la Universidad.}
-  \label{fig:logo_universidad}
-\end{figure}
-
-% Referenciar una etiqueta (label)
-Las tablas y figuras deben presentarse en el texto, referenciadas y numeradas. La descripción de una figura debe ir posicionada debajo de la misma. Las descripciones de tablas pueden aparecer encima o debajo de las mismas (pero de forma consistente en todo el documento).
-
-En las tablas se recomienda evitar líneas verticales y usar pocas horizontales. 
-
-La figura~\ref{fig:logo_universidad} se utiliza en la portada. \LaTeX ubica automáticamente las tablas y figuras. Para ello emplea reglas basadas en la experiencia de profesionales de la edición de textos. Podemos forzar su ubicación, pero en general es recomendable usar la ubicación sugerida por el sistema \LaTeX. Usad gráficos vectoriales siempre que podáis.
-
-
-
-
-
-\begin{figure}
-   \centering
-
-  \begin{minipage}{0.45\textwidth}
-   \centering
-
-
-    \footnotesize (a)
-  \end{minipage}
-  \hfill
-  \begin{minipage}{0.45\textwidth}
-   \centering
-
-   \footnotesize (b)
-  \end{minipage}
-
-    \bigskip
-
-    \footnotesize (c)
-
-  \caption{Ejemplo con varias figuras. Demostración visual del teorema de Pitágoras. En (a) tenemos un triángulo rectángulo con hipotenusa $c$ y catetos $a$ y $b$. En (b) se muestra tres copias escaladas del mismo triángulo. El verde se ha escalado por $a$, el rojo/rosa por $b$, y el azul por $c$. En (c) se juntan los triángulos de (b) para formar un rectángulo cuya base es $c^{2}$, pero también $a^{2} + b^{2}$. Por tanto, $a^{2} + b^{2} = c^{2}$.}\label{fig:teoremapitagoras}
-\end{figure}
-
-
-
-
-
-\section{Despliegue en AWS EMR}
-
-% Nueva página
-Normalmente no tendremos que insertar saltos de página, salvo para forzar que los capítulos empiecen en páginas impares, con \begin{verbatim}\blankpage\end{verbatim} En cualquier caso, podemos introducir un salto de página con el comando \begin{verbatim}\newpage\end{verbatim}.
-
-\newpage
-% También con \pagebreak
-
-
-
-\subsection{Código}
-
-
-\begin{mypython}[float={!t},caption={Titulo del algoritmo/código.},label={alg:etiqueta}]
-def sum_list_limits_1(a, lower, upper):
-    if lower > upper:
-        return 0
-    else:
-        return a[upper] + sum_list_limits_1(a, lower, upper - 1)
-\end{mypython}
-El código~\ref{alg:etiqueta} es un ejemplo en Python.
-
-
-
-\begin{algorithm}
-\begin{algorithmic}[1]
-\STATE $\forall i \in V$, \ let $i$ be an isolated community
-\STATE $o=permutation(V)$
-\FOR{$k \ \in \ o$}
-\STATE search in $A$ all the neighbours of $k$, $j$
-\STATE $\forall j$, calculate $\Delta Q_k(j)$ in matrix $\mathcal{M}$
-\STATE $j^*=\{ \ j \ | \ \Delta Q_k(j^*)=\max_j\{Q_k(j)\} \ \}$
-\IF{$\Delta Q_k(j^*)>0$}
-\STATE{Move node $k$ to $j^*$ 's community}
-\ELSE
-\STATE{$k$ remains in its community}
-\ENDIF
-\ENDFOR
-\end{algorithmic}\caption{\textit{Additional Louvain} \textbf{input}=$\left(A, \ \mathcal{M}\right)$ \textbf{output}=$P$}
-\label{alg:AdditionalLouvain}
-\end{algorithm}
-En el algoritmo~\ref{alg:AdditionalLouvain} aparece un ejemplo en pseudocódigo.
-
-
-
-
-
-
-
-
-
-
-
-% Nuevo capítulo
-\chapter{Experimentos / Validación}
-\label{sec:expVal}
-
-
-En esta sección se describen en detalle las queries realizadas sobre este dataset.
-
-
-\blankpage
-
-\section{Consultas Realizadas}
-
-\subsection{Descripción General}
-
-\subsubsection{Piloto más consistente de la temporada 2012}
+\subsection{Piloto más consistente de la temporada 2012}
 En esta query intentaremos averiguar cuál ha sido el piloto más consistente de la temporada 2012. Ya que este término puede resultar ambigüo, en concreto intentaremos averiguar qué piloto tuvo una menor diferencia entre la media de sus vueltas rápidas del campeonato y la media de todas las vueltas de todos los Grandes Premios de la temporada.
 
 Necesitaremos cruzar varias fuentes de datos para esto: 
@@ -921,6 +733,7 @@ Una vez tenemos todas las carreras de la temporada en cuestión, necesitamos hal
 
 Para obtener la media de las vueltas rápidas de cada piloto, debemos usar la tabla \texttt{results}, que tiene una entrada por cada piloto y Gran Premio que contiene además su vuelta más rápida según el formato \texttt{MM:ss.mmm}, siendo \texttt{MM} los minutos, \texttt{ss} los segundos y \texttt{mmm} los milisegundos. Para convertir este formato a milisegundos y viceversa, he creado dos UDFs llamadas \texttt{lapTimeToMs} y \texttt{msTolapTime}.
 
+\vfil \break
 
 \begin{lstlisting}
 val lapTimeToMs = (time: String) => {
@@ -968,18 +781,8 @@ Habiendo obtenido la media de vueltas por piloto de la temporada, podemos filtra
 
 Solo quedaría formatear los datos de salida. Para ello primero se hace un join con la tabla de pilotos, lo cual nos permite concatenar nombre y apellido de cada uno de los participantes en una nueva columna. En esta caso, como solo nos interesa el piloto y su diferencial, estas serán las únicas columnas que dejaremos en el DataFrame.
 
-Sobre qué piloto fue el más consistente en la temporada 2012, este análisis nos dice lo siguiente:
 
-INSERTAR IMAGEN DE RESULTADO 
-
-Lo interesante de esta query es que no solo vale para esta temporada. En el dataset que trato se tiene información de tiempos de vuelta desde el año 1996, así que podemos especificar cualquier conjunto de temporadas, ya sean consecutivas, salteadas o solamente una temporada en concreto.
-
-Veamos cuál ha sido el piloto más consistente desde el año 1996:
-
-INSERTAR IMAGEN DEL RESULTADO DESDE 1996 HASTA LA ACTUALIDAD
-
-
-\subsubsection{Dominio de fabricantes en la década de los 90}
+\subsection{Dominio de fabricantes en la década de los 90}
 
 Con esta query se pretende hallar qué fabricante ha sido el más dominante en la década de los 90. En concreto intentaremos hallar el número de mundiales ganados y el número de carreras ganadas.
 
@@ -998,11 +801,19 @@ Tras esto último, unimos las tabla \texttt{constructor$\_$standings.csv} con la
 
 Pasando ya a la presentación de los datos, se filtrarían los constructores duplicados y se ordenarían los datos según el total de campeonatos ganados primero y, en caso de empate, por número de victorias. Además, se hace un join con la tabla de constructores para obtener su nombre.
 
-INSERTAR CAPTURA DE PANTALLA
-
 Lo interesante de esta query es que se puede usar para cualquier periodo de tiempo. Podemos averiguar por ejemplo qué fabricante ha sido el más dominante en toda la historia de la competición y qué constructor ha dominado ciertos años concretos.
 
-INSERTAR CAPTURA DE PANTALLA DE DOMINIO HISTORICO
+
+\section{Despliegue en AWS EMR}
+
+
+
+% Nuevo capítulo
+\chapter{Experimentos / Validación}
+\label{sec:expVal}
+\newpage
+
+
 
 
 
@@ -1016,6 +827,7 @@ INSERTAR CAPTURA DE PANTALLA DE DOMINIO HISTORICO
 % Nuevo capítulo
 
 \chapter{Conclusiones y trabajos futuros}
+\newpage
 
 En este capítulo se detallan las conclusiones derivadas del TFG y la propuesta de posibles trabajos futuros.
 
