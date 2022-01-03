@@ -13,6 +13,10 @@ object SeasonAnalysis {
     val driverRaceWindow = Window.partitionBy("driverId", "raceId")
     val raceDriverLapWindow = Window.partitionBy("driverId", "raceId").orderBy("lap")
 
+    val drivers = spark.read.format("csv")
+      .option("header", "true")
+      .option("sep", ",")
+      .load("data/drivers.csv")
 
     val races = spark.read.format("csv")
       .option("header", "true")
@@ -20,11 +24,6 @@ object SeasonAnalysis {
       .load("data/races.csv")
       .select("raceId", "year")
       .where(col("year") === season)
-
-    val drivers = spark.read.format("csv")
-      .option("header", "true")
-      .option("sep", ",")
-      .load("data/drivers.csv")
 
     val pitStops = spark.read.format("csv")
       .option("header", "true")
@@ -38,24 +37,22 @@ object SeasonAnalysis {
       .option("header", "true")
       .option("sep", ",")
       .load("data/lap_times.csv")
-
       .withColumn("position", col("position").cast(IntegerType))
       .withColumn("lap", col("lap").cast(IntegerType))
-
       .join(races, "raceId")
       .join(pitStops, Seq("raceId", "driverId", "lap"), "left")
-
       .withColumn("positionNextLap", lead(col("position"), 1).over(raceDriverLapWindow))
       .withColumn("positionsGainedLap", when(col("positionNextLap") < col("position") , abs(col("position") - col("positionNextLap"))).otherwise(0))
       .withColumn("positionsLostLap", when(col("positionNextLap") > col("position"), abs(col("position") - col("positionNextLap"))).otherwise(0))
-
+      .withColumn("positionsGained", sum(col("positionsGainedLap")).over(driverRaceWindow))
+      .withColumn("positionsLost", sum(col("positionsLostLap")).over(driverRaceWindow))
+      .withColumn("lapLeader", when(col("position") === 1, 1).otherwise(0))
+      .withColumn("lapsLed", sum(col("lapLeader")).over(driverWindow))
+      .withColumn("totalLaps", sum(col("lapLeader")).over(seasonWindow))
+      .withColumn("percLapsLed", round(col("lapsLed") / col("totalLaps"), 2))
+      //     .sort(col("lap"))
       .where(col("lap") === 1)
-      .select(
-        col("raceId"),
-        col("driverId"),
-        sum(col("positionsGainedLap")).over(driverRaceWindow).as("positionsGained"),
-        sum(col("positionsLostLap")).over(driverRaceWindow).as("positionsLost")
-      )
+      .select("raceId", "driverId", "positionsGained", "positionsLost", "lapsLed", "percLapsLed")
 
     spark.read.format("csv")
       .option("header", "true")
@@ -78,20 +75,21 @@ object SeasonAnalysis {
         col("code"),
         sum(col("points")).over(driverWindow).as("champPoints"),
         col("averagePoints"),
-        round(col("averagePoints") / col("maxAvgPoints")).as("pointPercent"),
+        round(col("averagePoints") / col("maxAvgPoints"),2).as("pointPercent"),
         sum(col("podium")).over(driverWindow).as("totalPodiums"),
         round(sum(col("podium")).over(driverWindow) / count(col("podium")).over(driverWindow), 2).as("podiumPercent"),
         round(avg(col("position") - col("grid")).over(driverWindow), 2).as("positionDelta"),
         round(avg(col("positionsLost")).over(driverWindow), 2).as("avgPositionsLost"),
         round(avg(col("positionsGained")).over(driverWindow), 2).as("avgPositionsWon"),
         sum(col("positionsLost")).over(driverWindow).as("totalPositionsLost"),
-        sum(col("positionsGained")).over(driverWindow).as("totalPositionsWon")
+        sum(col("positionsGained")).over(driverWindow).as("totalPositionsWon"),
+        col("lapsLed"),
+        col("percLapsLed")
       )
+
 
       .dropDuplicates(Seq("code"))
       .sort(col("champPoints").desc)
-
-
 
   }
 }

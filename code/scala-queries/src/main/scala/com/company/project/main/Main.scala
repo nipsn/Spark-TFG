@@ -36,16 +36,17 @@ object Main extends App {
 //
 //  mostDominantConstructor2020.show(false)
 
-//  val analysis2021 = SeasonAnalysis(spark, 2021)
+  val analysis2021 = SeasonAnalysis(spark, 2021)
 
-  val xs = (0 until 100)
-
-  // Generate random y
-  val ys = (0 until 100).map { i => i + 5.0 * Random.nextDouble }
-
-  val p = Plot().withScatter(xs, ys)
-
-  draw(p, "basic-scatter", writer.FileOptions(overwrite=true))
-
-  spark.stop
+  analysis2021.show(30)
+//  val xs = (0 until 100)
+//
+//  // Generate random y
+//  val ys = (0 until 100).map { i => i + 5.0 * Random.nextDouble }
+//
+//  val p = Plot().withScatter(xs, ys)
+//
+//  draw(p, "basic-scatter", writer.FileOptions(overwrite=true))
+//
+//  spark.stop
 }
