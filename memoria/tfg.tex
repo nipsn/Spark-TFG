@@ -70,6 +70,7 @@
 \newcommand{\grado}{Grado en Ingeniería de Computadores}
 \newcommand{\curso}{Curso 2021-2022}
 \newcommand{\logoUniversidad}{logoURJC.pdf} % logoURJC.eps
+\newcommand{\quotes}[1]{``#1''}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -717,8 +718,8 @@ En la siguiente figura se puede apreciar el diagrama Entidad-Relación del conju
 
 \section{Programación de queries en Scala/Spark}
 
-\subsection{Piloto más consistente de la temporada 2012}
-En esta query intentaremos averiguar cuál ha sido el piloto más consistente de la temporada 2012. Ya que este término puede resultar ambigüo, en concreto intentaremos averiguar qué piloto tuvo una menor diferencia entre la media de sus vueltas rápidas del campeonato y la media de todas las vueltas de todos los Grandes Premios de la temporada.
+\subsection{Piloto más consistente en un periodo concreto de tiempo}
+En esta query intentaremos averiguar cuál ha sido el piloto más consistente en un periodo de tiempo dado. Ya que este término puede resultar ambigüo, en concreto intentaremos averiguar qué piloto tuvo una menor diferencia entre la media de sus vueltas rápidas y la media de todas las vueltas de todos los Grandes Premios de este periodo de tiempo.
 
 Necesitaremos cruzar varias fuentes de datos para esto: 
 
@@ -728,6 +729,145 @@ Necesitaremos cruzar varias fuentes de datos para esto:
   \item \texttt{drivers.csv}
   \item \texttt{results.csv}
 \end{compactitem}
+
+El primer paso para llevar a cabo esta query es cargar las fuentes de datos mencionadas. Para ello necesitamos haber creado un objeto \texttt{SparkSession}. En nuestro caso, esto se hace de la siguiente manera en el objeto \texttt{Main}:
+
+\begin{lstlisting}
+  val spark: SparkSession = SparkSession
+    .builder()
+    .master("local[*]")
+    .getOrCreate()
+\end{lstlisting}
+
+En nuestro caso con estas opciones es suficiente, ya que estamos dedicando todos los núcleos de nuestra máquina local para las tareas que vayamos a realizar. Sin embargo, existen otras opciones que podríamos añadir si fuese necesario, como un nombre para la aplicación con \texttt{.appName("Nombre")}. Un parámetro que puede resultar muy útil modificar es el de \texttt{spark.sql.broadcastTimeout}, que por defecto tiene un valor de 300 (segundos), si no tenemos muchos recursos y vemos que la aplicación para inesperadamente con una excepción que muestra el mensaje \quotes{Could not execute broadcast in 300 secs}. Para hacer esto, la creación de la \texttt{SparkSession} sería tal que:
+
+\begin{lstlisting}
+  val spark: SparkSession = SparkSession
+    .builder()
+    .master("local[*]")
+    .config("spark.sql.broadcastTimeout", "36000")
+    .getOrCreate()
+\end{lstlisting}
+
+De igual manera, si quisiéramos modificar algún parámetro distinto, lo haríamos añadiendo más modificaciones tal que: 
+
+\begin{lstlisting}
+  val spark: SparkSession = SparkSession
+    .builder()
+    .master("local[*]")
+    .config("spark.some.config.option", "some-value")
+    .config("spark.some.config.option", "some-value")
+       ...
+    .getOrCreate()
+\end{lstlisting}
+
+Una vez tenemos el \texttt{SparkSession} creado correctamente, podemos usarlo para leer y escribir datos en distintos formatos, como CSV o Parquet. Además, nos permitirá crear DataFrames a partir distintos de tipos de datos, como Listas o Tuplas.
+
+En nuestro caso, buscamos leer la fuente de datos \texttt{races.csv}, ya que nos permite filtrar por temporadas mediante la columna \texttt{year}. Para ello, ejecutamos las siguientes líneas de código:
+
+\begin{lstlisting}
+  val races = spark.read.format("csv")
+    .option("header", "true")
+    .option("sep", ",")
+    .load("data/races.csv")
+\end{lstlisting}
+
+Como se puede observar, se utilizan un par de opciones de lectura. En nuestro caso, la fuente de datos contiene las cabeceras en la primera línea y cada dato está separado por una coma y por ello tenemos que especificarlo. Por último se proporciona el path relativo de la fuente de datos.
+
+Tras esto se hace el filtro según las temporadas que se quieran usar. Para ello, ya que el periodo sobre el que se quiere obtener datos viene dado como tipo entero (ya sea en forma de lista o como un solo entero), tenemos que convertir la columna \texttt{year} a tipo entero, ya que por defecto, al no especificar el esquema a la hora de leer, Spark intenta adivinar los tipos de cada columna. Es posible que detecte esa columna como tipo entero, pero conviene asegurar haciendo la conversión de tipos. Después de esto, llevamos a cabo el filtro. Al final, para obtener este DataFrame que utilizaremos más adelante se llevan a cabo las siguientes operaciones:
+
+\begin{lstlisting}
+  val races = spark.read.format("csv")
+    .option("header", "true")
+    .option("sep", ",")
+    .load("data/races.csv")
+    .withColumn("year", col("year").cast(IntegerType))
+    .where(col("year").isInCollection(seasons))
+\end{lstlisting}
+
+De este trozo de código hay que comentar un par de aspectos. Primero, la conversión de tipos, que se hace al tipo \texttt{IntegerType}, y no a \texttt{Int}, como sería intuitivo hacer. Esto es porque Spark tiene una serie de tipos concretos para el tipo \texttt{Column}. Todos ellos se encuentran en el paquete \texttt{org.apache.spark.sql.types}, y es obligatorio su uso si se utiliza la función \texttt{cast}. También cabe destacar la función de DataFrame llamada \texttt{withColumn}, que se encuentra entre las más usadas, ya que permite añadir una columna al DataFrame. Crea una columna con el nombre que recibe como primer parámetro y con el valor que recibe en el segundo. En este caso, ya que la columna \texttt{year} ya existe, se sustituye la que había anteriormente con ese nombre.
+
+El otro aspecto a comentar es el propio filtro. Se utiliza la función \texttt{where}, que cumple el mismo propósito que su equivalente en SQL. Como parámetro recibe una condición, que en nuestro caso querríamos que fuese que \quotes{la columna \texttt{year} se encuentre entre los valores que hemos recibido}. Para ello podemos utilizar la función de columna \texttt{isInCollection}, que permite utilizar listas como filtros. En nuestro caso, \texttt{seasons} es la lista de temporadas en las que nos queremos centrar.
+
+Resumiendo, con estas pocas líneas de código hemos obtenido todas las carreras celebradas en el rango de temporadas que necesitamos. Más adelante se utilizará para filtrar los resultados de cada piloto y obtener solamente los que nos interesan. Merecía la pena pararse en este trocito de código ya que se repite todas las queries en las que se requiere centrarse en un periodo concreto de tiempo, ya que la tabla \texttt{seasons} está, en mi opinión, incompleta y solamente contiene información de cada temporada. Es posible que más adelante añada funcionalidad a esta tabla con una columna que contenga todos los id de las carreras celebradas en esa temporada para ahorrar tiempo.
+
+Para realizar esta consulta vamos a necesitar varios DataFrames auxiliares además del recién explicado. En concreto, necesitaremos tener una cuenta de todas las vueltas que ha dado cada piloto en el periodo de tiempo establecido, además de la tabla \texttt{drivers} para completar la información final.
+
+Para calcular todas las vueltas que ha dado cada piloto, primero tendremos que cargar la tabla \texttt{lap$\_$times.csv} de la misma manera que hicimos anteriormente con \texttt{races.csv}. Después, le tendremos que aplicar el filtro de temporadas utilizando lo obtenido anteriormente y, por último, se hará el conteo. Todo ello se puede hacer de la siguiente manera:
+
+\begin{lstlisting}
+  val lapCount = spark.read.format("csv")
+    .option("header", "true")
+    .option("sep", ",")
+    .load("data/lap_times.csv")
+    .join(races, Seq("raceId"), "right")
+    .withColumn("lapsPerDriver", count(col("lap")).over(driverWindow))
+\end{lstlisting}
+
+Como ya ha quedado claro cómo se carga información en formato CSV, paso a la siguiente línea, en la que se aplica el filtro de temporadas. Para ello hacemos la operación \texttt{join} con el DataFrame \texttt{races} obtenido anteriormente, sobre la columna \texttt{raceId} y de tipo \texttt{right}. En Spark SQL, existen varios tipos de intersecciones (join) que podemos realizar entre dos DataFrames:
+
+\begin{compactitem}
+  \item Inner Join.
+  \item Full Outer Join.
+  \item Left Outer Join
+  \item Right Outer Join.
+  \item Left Anti Join.
+  \item Left Semi Join.
+\end{compactitem}
+
+Todos ellos definidos de la misma manera que en el Algebra de Conjuntos.
+
+Para nuestro caso particular, utilizaremos un Right Outer Join, ya que nos queremos quedar con las vueltas de las carreras definidas en \texttt{races}.
+
+Tras esto, queremos obtener las vueltas que ha dado cada piloto en ese periodo de tiempo. Para ello, tenemos que utilizar la función \texttt{count} sobre la columna \texttt{lap}. Sin embargo, nos topamos con que, si hiciéramos eso (aparte de que el compilador no nos dejaría), necesitamos definir una ventana sobre la que operar.
+
+Las ventanas son una parte muy útil de Spark que nos permiten centrarnos en cierta información agrupada de la forma que necesitemos. En nuestro caso, necesitamos contar las vueltas que ha dado cada piloto sin tener en cuenta las del resto y para ello necesitamos definir una ventana nueva (en nuestro caso se podría llamar \texttt{driverWindow}) que particione los datos por piloto. Esto lo hacemos de la siguiente manera:
+
+\begin{lstlisting}
+  val driverWindow = Window.partitionBy("driverId") 
+\end{lstlisting}
+
+Utilizando esta ventana, la operación \texttt{count} se llevará a cabo un conteo distinto por cada \texttt{driverId} que haya. Si particionásemos los datos según varias columnas, se llevaría a cabo la operación en cuestión según cada valor único de esas columnas en conjunto, es decir, si hay alguna variación en alguna de ellas, se toma como una operación distinta. Más adelante pondré un ejemplo de esto mismo.
+
+Este DataFrame lo vamos a utilizar para definir cuáles son los pilotos más experimentados de este periodo de tiempo, que diremos que son los que han dado más de la media de vueltas por piloto. Para calcular esto y partiendo del DataFrame recién obtenido necesitamos conseguir dos valores: el número total de vueltas dadas entre todos los pilotos y el número de pilotos que han competido en este periodo de tiempo. Lo haremos de la siguiente manera:
+
+\begin{lstlisting}
+  val (distinctDrivers, allLaps) = lapCount
+    .agg(
+      countDistinct("driverID"),
+      count(col("lap"))
+    ).as[(Int, Int)]
+    .collect()(0)
+\end{lstlisting}
+
+Estos valores los obtendré en forma de tupla, en la que el valor de la izquierda será el número de pilotos y el de la derecha el número de vueltas. Cabe centrarse en la operación \texttt{agg}, que nos permite obtener un DataFrame cuyas columnas tendrán como valor el obtenido de las operaciones que definamos. En este caso, \texttt{countDistinct} que, como su nombre indica, cuenta los valores distintos de la columna \texttt{driverId} y \texttt{count}, que realiza un conteo de todas las entradas de la columna \texttt{lap}. Con \texttt{as} le definimos el tipo de datos que queremos obtener y con \texttt{collect}, obtenemos todos los valores del DataFrame. En este caso, como solo vamos a tener una entrada, y esta va a ser la única que necesitemos, hacemos un \texttt{collect()(0)}
+
+Para calcular la media de vueltas por piloto en este periodo de tiempo, realizamos la siguiente operación:
+
+\begin{lstlisting}
+  val avgLapsThisPeriod = allLaps / distinctDrivers
+\end{lstlisting}
+
+Con esta métrica podremos definir cuáles son los pilotos más experimentados de la siguiente manera:
+
+\begin{lstlisting}
+  val experiencedDrivers = lapCount
+    .where(col("lapsPerDriver") >= avgLapsThisPeriod)
+    .select("driverId")
+    .distinct()
+    .as[String]
+    .collect()
+\end{lstlisting}
+
+Con el DataFrame obtenido anteriormente, nos quedamos con los pilotos que tengan un número de vueltas superior o igual al índice calculado. Tras esto, nos quedamos solamente con los valores distintos la columna que indica el piloto y los obtenemos en forma de \texttt{List[String]} con las dos últimas operaciones para más adelante poder filtrar según ella.
+
+
+
+
+
+
+
+//////
 
 Para filtrar cualquier query por temporada o por rango de temporadas, tenemos que filtrar la tabla \texttt{races} según la columna \texttt{year}. En nuestro caso, filtramos la tabla para la temporada \texttt{2012}.
 
@@ -1009,7 +1149,7 @@ Las citas del texto Autor \cite{giaquinta}, Autor \cite{fortune}, Autor \cite{fo
 \begin{figure}
   \includegraphics[scale=0.4]{dataset_visualization.png}
   \centering
-  \caption{Tabla results}
+  \caption{Diagrama Entidad-Relación}
   \label{fig:datavisualization}
   \centering
 \end{figure}
