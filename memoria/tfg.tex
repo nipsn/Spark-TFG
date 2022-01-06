@@ -836,7 +836,7 @@ Este DataFrame lo vamos a utilizar para definir cuáles son los pilotos más exp
     .agg(
       countDistinct("driverID"),
       count(col("lap"))
-    ).as[(Int, Int)]
+    ).as[(BigInt, BigInt)]
     .collect()(0)
 \end{lstlisting}
 
@@ -845,7 +845,7 @@ Estos valores los obtendré en forma de tupla, en la que el valor de la izquierd
 Para calcular la media de vueltas por piloto en este periodo de tiempo, realizamos la siguiente operación:
 
 \begin{lstlisting}
-  val avgLapsThisPeriod = allLaps / distinctDrivers
+  val avgLapsThisPeriod = allLaps.toInt / distinctDrivers.toInt
 \end{lstlisting}
 
 Con esta métrica podremos definir cuáles son los pilotos más experimentados de la siguiente manera:
@@ -861,67 +861,161 @@ Con esta métrica podremos definir cuáles son los pilotos más experimentados d
 
 Con el DataFrame obtenido anteriormente, nos quedamos con los pilotos que tengan un número de vueltas superior o igual al índice calculado. Tras esto, nos quedamos solamente con los valores distintos la columna que indica el piloto y los obtenemos en forma de \texttt{List[String]} con las dos últimas operaciones para más adelante poder filtrar según ella.
 
+Tras esto, querremos obtener la media de todas las vueltas que ha dado cada piloto. Para ello, cargamos de nuevo la tabla \texttt{lap$\_$times.csv}, en la que tenemos una columna llamada \texttt{milliseconds} y filtramos las temporadas que nos interesan. Para asegurar, convertimos esta columna a tipo entero y hacemos la media usando la ventana que creamos antes. Eliminamos los pilotos duplicados y nos quedamos con dos columnas: identificador de piloto y la media obtenida. El código queda tal que:
+
+\begin{lstlisting}
+  val avgLapTimes = spark.read.format("csv")
+    .option("header", "true")
+    .option("sep", ",")
+    .load("data/lap_times.csv")
+    .withColumnRenamed("time", "lapTime")
+    // filtro las vueltas de las carreras en el periodo de tiempo dado
+    .join(races, Seq("raceId"), "right")
+    .withColumn("milliseconds", col("milliseconds").cast(IntegerType))
+    // media de tiempos de vuelta por piloto
+    .withColumn("avgMs", avg(col("milliseconds")).over(driverWindow))
+    .dropDuplicates("driverId")
+    .select("driverId", "avgMs")
+\end{lstlisting}
 
 
+Finalmente, querríamos obtener un DataFrame que contenga dos columnas: el nombre del piloto y la diferencia ya mencionada anteriormente. Para ello, necesitamos cargar la tabla \texttt{results.csv} y dejar fuera las temporadas que no nos interesen. Esto lo haremos como ya hemos comentado antes.
+
+Nos vamos a centrar en una de las columnas que tenemos: \texttt{fastestLapTime} que, como su nombre indica, nos da el tiempo de la vuelta más rápida de cada piloto en cada carrera. El problema es que nos lo proporciona en el formato MM:ss:mmm, donde MM son los minutos, ss los segundos y mmm los milisegundos. Necesitamos una forma de convertir esta columna a una unidad con la que podamos operar. Para este caso, lo mejor es convertir el tiempo a milisegundos.
+
+Esta funcionalidad nos la proporcionan las UDFs (User-Defined Functions). La documentación de Spark las define como \quotes{rutinas programables por el usuario que actúan fila a fila}. Haciendo uso de ellas, podemos convertir una función que realice esta conversión que queremos a una función que actúe de la misma manera para una columna, fila a fila.
+
+En nuestro caso vamos a tener dos funciones de este estilo: una para convertir de ese formato a milisegundos y otra que actúe de forma inversa. El código es el siguiente:
 
 
+\newpage
 
+\begin{lstlisting}
+  val lapTimeToMs = (time: String) => {
+    val regex = """([0-9]|[0-9][0-9]):([0-9][0-9])\.([0-9][0-9][0-9])""".r
+    time match {
+      case regex(min,sec,ms) => min.toInt * 60 * 1000 + sec.toInt * 1000 + ms.toInt
+      case "\\N" => 180000
+    }
+  }: Long
+\end{lstlisting}
 
-//////
+\begin{lstlisting}
+  val msToLapTime = (time: Long) => {
+    val mins = time / 60000
+    val secs = (time - mins * 60000) / 1000
+    val ms = time - mins * 60000 - secs * 1000
 
-Para filtrar cualquier query por temporada o por rango de temporadas, tenemos que filtrar la tabla \texttt{races} según la columna \texttt{year}. En nuestro caso, filtramos la tabla para la temporada \texttt{2012}.
+    val formattedSecs = if ((secs / 10).toInt == 0) "0" + secs else secs
+    // if ms = 00x -> "0"+"0"+x . if ms = 0xx -> "0"+ms
+    val formattedMs =
+      if ((ms / 100).toInt == 0) "0" +
+        (if ((ms / 10).toInt == 0) "0" + ms else ms)
+      else ms
+    mins + ":" + formattedSecs + "." + formattedMs
+  }: String
+\end{lstlisting}
 
-Una vez tenemos todas las carreras de la temporada en cuestión, necesitamos hallar el tiempo medio por vuelta de cada piloto en cada Gran Premio. En la tabla \texttt{lap$\_$times.csv} existe una columna llamada \texttt{milliseconds}, que denota los milisegundos de la vuelta dada. Haciendo un right join, podemos obtener todas las vueltas dadas en una temporada. Usando una ventana que particione los datos por piloto, haremos la media de la columna \texttt{milliseconds} para hallar la media de toda la temporada.
+En la función \texttt{lapTimeToMs} convierto el formato de tiempo de vuelta a milisegundos. En este caso, lo hago con una expresión regular, de forma que extraigo los minutos, segundos y milisegundos de las posiciones correspondientes. Después, multiplico cada valor como corresponde y lo sumo. Es posible que, si el piloto no llegó a salir a pista, su tiempo de vuelta sea nulo, simbolizado por el string \quotes{\textbackslash\textbackslash N}. En este caso, ha decidido usar 180000 milisegundos en su lugar, o 3 minutos. Se ha decidido usar esa cifra ya que es raro que una vuelta al circuito dure más de 2 minutos y de esta manera se \quotes{penalizará} al piloto que no haya acabado la vuelta.
 
-Para obtener la media de las vueltas rápidas de cada piloto, debemos usar la tabla \texttt{results}, que tiene una entrada por cada piloto y Gran Premio que contiene además su vuelta más rápida según el formato \texttt{MM:ss.mmm}, siendo \texttt{MM} los minutos, \texttt{ss} los segundos y \texttt{mmm} los milisegundos. Para convertir este formato a milisegundos y viceversa, he creado dos UDFs llamadas \texttt{lapTimeToMs} y \texttt{msTolapTime}.
+De forma inversa, tenemos otra función llamada \texttt{msToLapTime} que, dado un valor en microsegundos, lo convierte al formato correcto. En este caso se hace la operación inversa. Se hallan los minutos, segundos y milisegundos para más adelante formatear el texto de forma que en el caso de que un piloto hicieste un tiempo de un minuto, tres segundos y tres milisegundos, quedase formateado como \quotes{1:03:003} en lugar de \quotes{1:3:3}.
+
+Tras esto hay que conseguir la UDF y registrarla, proceso que resulta sencillo con las siguientes instrucciones:
+
+\newpage
+
+\begin{lstlisting}
+  val lapTimeToMsUDF = udf(lapTimeToMs)
+  spark.udf.register("lapTimeToMs", lapTimeToMsUDF)
+\end{lstlisting}
+
+De esta manera podremos invocar la función \texttt{lapTimeToMsUDF}, le proporcionaremos una columna y nos de volverá otra ya procesada.
+
+Una vez explicado esto, podemos continuar con el procesamiento del DataFrame final. Como comentamos, nos centramos en primera instancia en la columna \texttt{fastestLapTime}. Primero, debemos eliminar los valores nulos y después, todos los valores restantes los debemos convertir a milisegundos para poder operar con ellos. Esto lo podemos hacer de la siguiente manera:
+
+\begin{lstlisting}
+  spark.read.format("csv")
+    .option("header", "true")
+    .option("sep", ",")
+    .load("data/results.csv")
+    // filtro por temporada
+    .join(races, Seq("raceId"), "right")
+    .na.drop(Seq("fastestLapTime"))
+    .withColumn("fastestLapTimeMs", lapTimeToMsUDF(col("fastestLapTime")))
+\end{lstlisting}
+
+Ya que este va a ser el DataFrame que devolvamos, podemos no guardarlo en ninguna variable y devolverlo directamente. Como viene siendo habitual, cargamos la tabla y filtramos las carreras. Después, con la función \texttt{na.drop}, eliminamos los valores nulos de la columna \texttt{fastestLapTime}. Si quisiéramos eliminar los valores nulos de varias columnas, bastaría con pasarle más nombres de columnas dentro de la lista que recibe.
+
+Tras esto, para conseguir la columna con los milisegundos usamos \texttt{withColumn}, que recibe como nombre \texttt{fastestLapTimeMs} y como valor la conversión de la columna \texttt{fastestLapTime}, usando para ello la UDF que hemos definido.
+
+Una vez hecho esto, aprovechamos la ventana que definimos anteriormente para hacer la media de las vueltas más rápidas de cada piloto tal que:
+
+\begin{lstlisting}
+  .withColumn("avgFastestLapMs", avg(col("fastestLapTimeMs")).over(driverWindow))
+\end{lstlisting}
+
+Ya que tendremos entradas de pilotos duplicadas, las eliminamos con la siguiente operación:
+
+\begin{lstlisting}
+  .dropDuplicates("driverId")
+\end{lstlisting}
+
+Una vez hecho esto, necesitamos la media de todas las vueltas dadas por cada piloto, que tenemos guardadas en la variable \texttt{avgLapTimes}. Tendremos que hacer una intersección sobre la columna \texttt{driverId}, pero en este caso de tipo \texttt{left}, ya que queremos completar la información que ya tenemos.
+
+Recordemos que nuestro objetivo es obtener la diferencia entre la media de vueltas rápidas y la media de todas las vueltas. El símbolo que tenga realmente no nos interesa, ya que resulta evidente que el piloto irá más rápido en las vueltas rápidas que en la media de vueltas, pero aún así utilizaremos el valor absoluto de esta resta para eliminar signos. Ya que esta diferencia está en milisegundos, también tendremos que convertirlos al formato de tiempo de vuelta utilizando la UDF que hemos comentado anteriormente.
+
+El código para hacer todo esto que hemos comentado sería:
+
+\begin{lstlisting}
+  .join(avgLapTimes, Seq("driverId"), "left")
+  // saco el diferencial
+  .withColumn("diffLapTimes", abs(col("avgMs") - col("avgFastestLapMs")).cast(IntegerType))
+  // vuelvo a pasar a tiempo de vuelta
+  .withColumn("avgDiff", msToLapTimeUDF(col("diffLapTimes").cast(IntegerType)))
+\end{lstlisting}
+
+En principio podríamos decir que ya tenemos lo que queremos, pero en mi opinión, no es justo tener en cuenta a pilotos que por ejemplo han corrido una sóla carrera, ya que no constituye una muestra significativa de la capacidad del piloto. Para solventar este problema podemos filtrar los pilotos no experimentados de la información que hemos obtenido utilizando la lista que llamamos \texttt{experiencedDrivers} de la siguiente manera:
+
+\begin{lstlisting}
+  .where(col("driverId").isInCollection(experiencedDrivers))
+\end{lstlisting}
+
+Una vez tenemos datos de todos los pilotos que nos interesan, pasamos a formatear la tabla que vamos a devolver. En concreto, sería interesante tener en una columna el nombre y apellido del piloto y en otra el diferencial calculado.
+
+Para ello, tenemos que hacer otra intersección con la tabla \texttt{drivers} y concatenar el nombre y el apellido del piloto. Tras esto, nos quedamos con las columnas que nos interesan y ordenamos la tabla según el diferencial calculado de menor a mayor.
+
+Al final, el código para obtener este DataFrame final quedaría tal que:
 
 \vfil \break
 
 \begin{lstlisting}
-val lapTimeToMs = (time: String) => {
-  val regex = """([0-9]|[0-9][0-9]):([0-9][0-9])\.([0-9][0-9][0-9])""".r
-  time match {
-    case regex(min,sec,ms) => min.toInt * 60 * 1000 + sec.toInt * 1000 + ms.toInt
-    case "\\N" => 180000
-  }  
-}: Long
-  \end{lstlisting}
-
-\begin{lstlisting}
-val msToLapTime = (time: Long) => {
-  val mins = time / 60000
-  val secs = (time - mins*60000)/1000
-  val ms = time - mins*60000 - secs*1000
-    
-  val formattedSecs = if((secs / 10).toInt == 0) "0" + secs else secs
-  // if ms = 00x -> "0"+"0"+x . if ms = 0xx -> "0"+ms
-  val formattedMs = if((ms / 100).toInt == 0) "0" + (if((ms / 10).toInt == 0) "0" + ms else ms) else ms
-  mins + ":" + formattedSecs + "." + formattedMs    
-}: String
+  spark.read.format("csv")
+    .option("header", "true")
+    .option("sep", ",")
+    .load("data/results.csv")
+    // filtro por temporada
+    .join(races, Seq("raceId"), "right")
+    .na.drop(Seq("fastestLapTime"))
+    // paso la vuelta rapida de tiempo por vuelta a ms
+    .withColumn("fastestLapTimeMs", lapTimeToMsUDF(col("fastestLapTime")))
+    // saco la media de vueltas rapidas
+    .withColumn("avgFastestLapMs", avg(col("fastestLapTimeMs")).over(driverWindow))
+    .dropDuplicates("driverId")
+    .join(avgLapTimes, Seq("driverId"), "left")
+    // saco el diferencial
+    .withColumn("diffLapTimes", abs(col("avgMs") - col("avgFastestLapMs")).cast(IntegerType))
+    // vuelvo a pasar a tiempo de vuelta
+    .withColumn("avgDiff", msToLapTimeUDF(col("diffLapTimes").cast(IntegerType)))
+    // filtro pilotos "experimentados"
+    .where(col("driverId").isInCollection(experiencedDrivers))
+    // concateno el nombre y apellido de los pilotos
+    .join(drivers, "driverId")
+    .withColumn("driver", concat(col("forename"), lit(" "), col("surname")))
+    .select("driver", "avgDiff")
+    .orderBy("avgDiff")
 \end{lstlisting}
 
-La función \texttt{lapTimeToMs} debe tener en cuenta también que hay entradas que no tienen un tiempo válido, sino que contienen el string \texttt{"\textbackslash\textbackslash N"}. Esto se debe a que hay ocasiones en los que un piloto no termina la vuelta. Un ejemplo sería si se retirase de la carrera en esa vuelta. Se ha decidido sumar 3 minutos (180000 ms) como penalización.
-
-Una vez tenemos estas dos funciones, ya podemos el tiempo medio de vueltas rápidas. De nuevo particionamos los datos según el piloto y hacemos la media de la columna \texttt{fastestLapTime}. Este valor en milisegundos se convierte al formato de tiempo de vuelta con la UDF correspondiente y tras esto se ordena por el diferencial hallado de forma ascendente.
-
-Además de esto, haciendo un análisis previo se observó que había pilotos que habían completado pocas carreras en comparación al resto, ya que a que sustituían a algún otro piloto debido a algún accidente. Se decidió filtrar estos outliers de forma que, independientemente del periodo de tiempo sobre el que queramos lanzar esta query, el resultado fuese significativo. Para ello se usó la tabla obtenida con todas las carreras en la temporada y, a partir de la columna \texttt{lap} de la tabla \texttt{lap$\_$times} se realizó un conteo de todas las vueltas dadas por cada piloto utilizando, de nuevo, una ventana de datos particionada por piloto.
-
-De este DataFrame queremos obtener tanto la cuenta de vueltas por piloto como el numero total de pilotos que han participado en la temporada, que haremos de la siguiente manera:
-\begin{lstlisting}
-val (distinctDrivers, allLaps) = lapCount
-  .agg(
-      countDistinct("driverID"),
-      count(col("lap"))
-  ).as[(BigInt, BigInt)]
-  .collect()(0)
-
-val avgLapsThisPeriod = allLaps.toInt / distinctDrivers.toInt
-\end{lstlisting}
-
-Habiendo obtenido la media de vueltas por piloto de la temporada, podemos filtrar aquellos cuyo conteo sea inferior.
-
-
-Solo quedaría formatear los datos de salida. Para ello primero se hace un join con la tabla de pilotos, lo cual nos permite concatenar nombre y apellido de cada uno de los participantes en una nueva columna. En esta caso, como solo nos interesa el piloto y su diferencial, estas serán las únicas columnas que dejaremos en el DataFrame.
+\newpage
 
 
 \subsection{Dominio de fabricantes en la década de los 90}
