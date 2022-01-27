@@ -19,6 +19,7 @@
 
 \usepackage[spanish]{babel}
 
+
 %\usepackage[latin1]{inputenc} % Usad en WinEdt/MikTex
 \usepackage[utf8]{inputenc} % Usad en overleaf
 
@@ -597,18 +598,7 @@ Una posible estructura de la memoria final asociada con cada TFG podría ser la 
 \chapter{Objetivos}
 \newpage
 
-El principal objetivo de este Trabajo de Fin de Grado realizar una comparativa entre las API de Spark de Scala y de Python. Sin embargo, también existen otros objetivos que irán surgiendo mientras se avanza sobre el principal. Entre ellos estarían:
-
-\begin{enumerate}
-  \item Aprender Scala como lenguaje funcional: para ello utilizaré distintos recursos bibliográficos, pero principalmente "Programming In Scala", 4ª edición, de Martin Odersky y "Functional Programming in Scala" 1ª edición, de Paul Chiusano. Se aprenderán conceptos como las funciones de orden superior, tipos de datos algebráicos, currificación de funciones y recursividado la correspondencia de Curry-Howard.
-  \item Aprender Spark como API tanto para Scala como para Python: para ello principalmente usaré el libro "Spark: The Definitive Guide", de Bill Chambers. Aprenderé conceptos como la API de DataFrames, Spark SQL en profundidad cómo utilizar la Spark UI para obtener métricas del proceso.
-  \item Visualizar de los resultados de las queries realizadas usando Plotly. 
-  \item Migrar queries desde PySpark a Scala Spark, centrando la explicación en las diferencias entre ambas APIs y en detalles a tener en cuenta al hacer una migración de este estilo.
-  \item Medir y comparar el rendimiento de ambas API utilizando la Spark UI, que proporciona métricas de rendimiento en tiempo y memoria.
-  \item Realizar queries a un cluster AWS EMR.
-\end{enumerate}
-
-Como objetivo adicional y debido a que se usará un dataset de la Fórmula 1, se buscará encontrar la siguiente información:
+El principal objetivo de este Trabajo de Fin de Grado realizar una comparativa entre las API de Spark de Scala y de Python. Para ello utilizaremos un conjunto de datos del dominio de la Fórmula 1 e intentaremos responder a las siguientes preguntas mediante queries como:
 
 \begin{compactitem}
   \item Piloto más consistente en un periodo de tiempo concreto: se calculará la diferencia entre el tiempo medio de todas las vueltas de cada piloto ese periodo de tiempo en concreto y la media de sus vueltas más rápidas.
@@ -619,7 +609,14 @@ Como objetivo adicional y debido a que se usará un dataset de la Fórmula 1, se
   \item Temporada más interesante para el espectador, teniendo en cuenta métricas como el número de adelantamientos, accidentes, retiradas de pilotos, más cambios de líder en la clasificación general, etc.
 \end{compactitem}
 
+Además de responder a estas preguntas, también me planteo los siguientes objetivos:
 
+\begin{compactitem}
+  \item Visualizar de los resultados de las queries realizadas usando Plotly. 
+  \item Migrar queries desde PySpark a Scala Spark, centrando la explicación en las diferencias entre ambas APIs y en detalles a tener en cuenta al hacer una migración de este estilo.
+  \item Medir y comparar el rendimiento de ambas API utilizando la Spark UI, que proporciona métricas de rendimiento en tiempo y memoria.
+  \item Realizar queries a un cluster AWS EMR.
+\end{compactitem}
 
 
 % Capítulo 3
@@ -647,70 +644,223 @@ Como se mencionó brevemente en el apartado de Objetivos, se ha utilizado un con
   \item \texttt{drivers}
 \end{compactitem}
 
-\subsection{Tablas de entrada}
+Todas estas tablas están interrelacionadas como se puede ver en el diagrama Entidad-Relación que se presenta a continuación:
 
-En este apartado se proporcionará una descripción de los datos más útiles que contiene cada una de las tablas de entrada además de una visualización de las mismas.
+\begin{figure}[H]
+  \includegraphics[scale=0.4]{dataset_visualization.png}
+  \centering
+  \caption{Diagrama Entidad-Relación}
+  \label{fig:datavisualization}
+  \centering
+\end{figure}
+
 
 \subsubsection{Tabla \texttt{circuits}}
 
-Esta tabla contiene información sobre todos los circuitos en los que se ha llevado a cabo un Gran Premio. Las columnas más interesantes son el nombre del circuito, una referencia textual y la localización. \ref{fig:circuits}
+Esta tabla contiene información sobre todos los circuitos en los que se ha llevado a cabo un Gran Premio. Las columnas más interesantes son el nombre del circuito, una referencia textual y la localización. 
+
+\begin{figure}[H]
+  \includegraphics[scale=0.4]{circuits_table.png}
+  \centering
+  \caption{Tabla circuits}
+  \label{fig:circuits}
+  \centering
+\end{figure}
 
 \subsubsection{Tabla \texttt{constructor$\_$results}}
 
-Esta tabla nos proporciona información sobre los resultados de las carreras en base a los constructores. \ref{fig:constructorres}
+Esta tabla nos proporciona información sobre los resultados de las carreras en base a los constructores. 
+
+\begin{figure}[H]
+  \includegraphics[scale=0.5]{constructor_results_table.png}
+  \centering
+  \caption{Tabla constructor$\_$results}
+  \label{fig:constructorres}
+  \centering
+\end{figure}
 
 
 \subsubsection{Tabla \texttt{constructor$\_$standings}}
 
 Esta tabla contiene información sobre la clasificación de constructores. Como particularidad, tiene una entrada por carrera y constructor participante. Por tanto, podríamos ver cómo ha ido cambiando la clasificación de constructores a lo largo del campeonato.
 
-Las columnas más interesantes son el identificador de la carrera, identificador del constructor, los puntos, la posición en la clasificación y las victorias hasta ese punto. \ref{fig:constructorstands}
+Las columnas más interesantes son el identificador de la carrera, identificador del constructor, los puntos, la posición en la clasificación y las victorias hasta ese punto. 
+
+
+\begin{figure}[H]
+  \includegraphics[scale=0.5]{constructor_standings_table.png}
+  \centering
+  \caption{Tabla constructor$\_$standings}
+  \label{fig:constructorstands}
+  \centering
+\end{figure}
 
 \subsubsection{Tabla \texttt{constructors}}
 
-Esta tabla contiene información sobre los distintos constructores que han participado en algún campeonato mundial de Fórmula 1. Las columnas más interesantes son el id de constructor, la referencia, el nombre del constructor y la nacionalidad. \ref{fig:constructors}
+Esta tabla contiene información sobre los distintos constructores que han participado en algún campeonato mundial de Fórmula 1. Las columnas más interesantes son el id de constructor, la referencia, el nombre del constructor y la nacionalidad. 
+
+\begin{figure}[H]
+  \includegraphics[scale=0.5]{constructors_table.png}
+  \centering
+  \caption{Tabla constructors}
+  \label{fig:constructors}
+  \centering
+\end{figure}
+
 
 \subsubsection{Tabla \texttt{driver$\_$standings}}
 
-Similar a la tabla de clasificación de constructores, pero para pilotos. Tenemos las mismas columnas, salvo que en lugar de tener un id de constructor, lo tenemos de piloto. \ref{fig:drivstands}
+Similar a la tabla de clasificación de constructores, pero para pilotos. Tenemos las mismas columnas, salvo que en lugar de tener un id de constructor, lo tenemos de piloto. 
+
+
+\begin{figure}[H]
+  \includegraphics[scale=0.5]{driver_standings_table.png}
+  \centering
+  \caption{Tabla driver$\_$standings}
+  \label{fig:drivstands}
+  \centering
+\end{figure}
+
 
 \subsubsection{Tabla \texttt{lap$\_$times}}
 
 Esta tabla es una de las más interesantes, ya que nos da todos los tiempos de vuelta de todos los pilotos desde que hay registros. Esto es, desde parte de 1996 y 1997 al completo.
 
-Las columnas más llamativas podrían ser el id de carrera, el de piloto, la vuelta en cuestión, la posición y el tiempo en milisegundos. \ref{fig:laptimestab}
+Las columnas más llamativas podrían ser el id de carrera, el de piloto, la vuelta en cuestión, la posición y el tiempo en milisegundos. 
+
+\begin{figure}[H]
+  \includegraphics[scale=0.5]{lap_times_table.png}
+  \centering
+  \caption{Tabla lap$\_$times}
+  \label{fig:laptimestab}
+  \centering
+\end{figure}
 
 \subsubsection{Tabla \texttt{pit$\_$stops}}
 
-Esta tabla contiene información de las paradas en boxes. Las columnas más interesantes son los id de carrera y piloto, el índice de parada (si es la primera, segunda, etc), la vuelta en la que se hace y la duración en milisegundos. \ref{fig:pitstops}
+Esta tabla contiene información de las paradas en boxes. Las columnas más interesantes son los id de carrera y piloto, el índice de parada (si es la primera, segunda, etc), la vuelta en la que se hace y la duración en milisegundos. 
+
+\begin{figure}[H]
+  \includegraphics[scale=0.5]{pit_stop_table.png}
+  \centering
+  \caption{Tabla pit$\_$stops}
+  \label{fig:pitstops}
+  \centering
+\end{figure}
 
 \subsubsection{Tabla \texttt{qualifying}}
 
-Esta tabla nos da información sobre los resultados de todas las rondas de clasificación. La columnas más interesantes son la posición final y los tiempos en Q1, Q2 y Q3. \ref{fig:quali}
+Esta tabla nos da información sobre los resultados de todas las rondas de clasificación. La columnas más interesantes son la posición final y los tiempos en Q1, Q2 y Q3. 
+
+\begin{figure}[H]
+  \includegraphics[scale=0.4]{qualifying_table.png}
+  \centering
+  \caption{Tabla qualifying}
+  \label{fig:quali}
+  \centering
+\end{figure}
+
 
 \subsubsection{Tabla \texttt{races}}
 
-Esta tabla contiene información sobre todas las carreras celebradas en la historia de la competición. Contiene columnas como el id del circuito, el nombre del Gran Premio, la fecha y el año en el que se celebró. Esta última quizá sea la más útil de todo el dataset, ya que es la única forma de filtrar las carreras o los resultados por temporada. \ref{fig:races}
+Esta tabla contiene información sobre todas las carreras celebradas en la historia de la competición. Contiene columnas como el id del circuito, el nombre del Gran Premio, la fecha y el año en el que se celebró. Esta última quizá sea la más útil de todo el dataset, ya que es la única forma de filtrar las carreras o los resultados por temporada. 
+
+\begin{figure}[H]
+  \includegraphics[scale=0.4]{races_table.png}
+  \centering
+  \caption{Tabla races}
+  \label{fig:races}
+  \centering
+\end{figure}
 
 \subsubsection{Tabla \texttt{results}}
 
-Esta tabla es similar a la de resultados por constructor, pero para pilotos. Es la tabla más completa de todas, ya que nos proporciona una entrada por piloto y carrera con información relevante de cómo se ha desarrollado la misma. Las columnas más interesantes pueden ser la posición de salida y la posición final, los puntos ,las vueltas dadas, la vuelta más rápida, la velocidad más rápida y, en el caso de que haya habido algún incidente, el id del estado. \ref{fig:resultstab}
+Esta tabla es similar a la de resultados por constructor, pero para pilotos. Es la tabla más completa de todas, ya que nos proporciona una entrada por piloto y carrera con información relevante de cómo se ha desarrollado la misma. Las columnas más interesantes pueden ser la posición de salida y la posición final, los puntos ,las vueltas dadas, la vuelta más rápida, la velocidad más rápida y, en el caso de que haya habido algún incidente, el id del estado. 
+
+\begin{figure}[H]
+  \includegraphics[scale=0.27]{results_table.png}
+  \centering
+  \caption{Tabla results}
+  \label{fig:resultstab}
+  \centering
+\end{figure}
 
 \subsubsection{Tabla \texttt{seasons}}
 
-Quizá se trate de la tabla menos útil, ya que solamente contiene una columna con el año y otra con una url a un artículo de Wikipedia para cada entrada. \ref{fig:seasonstable}
+Quizá se trate de la tabla menos útil, ya que solamente contiene una columna con el año y otra con una url a un artículo de Wikipedia para cada entrada. 
+
+\begin{figure}[H]
+  \includegraphics[scale=0.7]{season_table.png}
+  \centering
+  \caption{Tabla seasons}
+  \label{fig:seasonstable}
+  \centering
+\end{figure}
+
 
 \subsubsection{Tabla \texttt{status}}
 
-Esta tabla nos da información sobre los estados en los que ha podido acabar la carrera un piloto determinado. Contiene un identificador y el estado en cuestión. \ref{fig:statustable}
+Esta tabla nos da información sobre los estados en los que ha podido acabar la carrera un piloto determinado. Contiene un identificador y el estado en cuestión. 
+
+\begin{figure}[H]
+  \includegraphics[scale=0.7]{status_table.png}
+  \centering
+  \caption{Tabla status}
+  \label{fig:statustable}
+  \centering
+\end{figure}
 
 \subsubsection{Tabla \texttt{drivers}}
 
-Contiene información sobre todos los pilotos que han competido a lo largo de la historia. En concreto la información más relevante puede ser el nombre y apellido, el código, la fecha de nacimiento y la nacionalidad. \ref{fig:driverstable}
+Contiene información sobre todos los pilotos que han competido a lo largo de la historia. En concreto la información más relevante puede ser el nombre y apellido, el código, la fecha de nacimiento y la nacionalidad. 
 
-\subsection{Diagramas de la estructura de las tablas}
+\begin{figure}[H]
+  \includegraphics[scale=0.5]{driver_table.png}
+  \centering
+  \caption{Tabla drivers}
+  \label{fig:driverstable}
+  \centering
+\end{figure}
 
-En la siguiente figura se puede apreciar el diagrama Entidad-Relación del conjunto de datos: \ref{fig:datavisualization}
+
+\subsubsection{Tabla \texttt{drivers constructor season}}
+
+Esta tabla no estaba originalmente en el conjunto de datos, pero resultó necesario crear una tabla nueva que relacionase cada piloto con su constructor en cada temporada. Principalmente se necesita para poder hacer comparativas entre pilotos del mismo equipo o bien globalmente o bien por temporadas. 
+
+Esta tabla se creó a partir de la tabla \texttt{races}, que contiene la temporada y la tabla \texttt{results}, que contiene tanto el constructor como el piloto. Se hizo la intersección de estas tablas mediante la columna identificadora de la carrera. El código es el siguiente:
+
+
+\begin{lstlisting}
+val raceSeasonMap = spark.read.format("csv")
+  .option("header", "true")
+  .option("sep", ",")
+  .load("../data/races.csv")
+  .select("raceId", "year")
+
+spark.read.format("csv")
+  .option("header", "true")
+  .option("sep", ",")
+  .load("../data/results.csv")
+  .join(raceSeasonMap, Seq("raceId"), "left")
+  .select("year", "driverId", "constructorId")
+  .dropDuplicates()
+  .repartition(1)
+  .write.format("csv")
+  .option("header", "true")
+  .save("../data/drivers_constr_season.csv")
+\end{lstlisting}
+
+Para escribir la tabla en disco, primero tenemos que utilizar \texttt{repartition} para que el resultado final quede en un solo archivo csv. Después especificamos el formato y si queremos las cabeceras o no, y proporcionamos el directorio donde queremos que quede guardado.
+
+Finalmente la tabla contiene información tal que:
+
+\begin{figure}[H]
+  \includegraphics[scale=0.7]{driv_const_ssn_table.png}
+  \centering
+  \caption{Tabla auxiliar piloto-constructor-temporada}
+  \label{fig:driv_const_ssn_table}
+  \centering
+\end{figure}
 
 
 \section{Programación de queries en PySpark}
@@ -719,7 +869,7 @@ En la siguiente figura se puede apreciar el diagrama Entidad-Relación del conju
 \section{Programación de queries en Scala/Spark}
 
 \subsection{Piloto más consistente en un periodo concreto de tiempo}
-En esta query intentaremos averiguar cuál ha sido el piloto más consistente en un periodo de tiempo dado. Ya que este término puede resultar ambigüo, en concreto intentaremos averiguar qué piloto tuvo una menor diferencia entre la media de sus vueltas rápidas y la media de todas las vueltas de todos los Grandes Premios de este periodo de tiempo.
+En esta query intentaremos averiguar cuál ha sido el piloto más consistente en un periodo de tiempo dado. Ya que este término puede resultar ambiguo, en concreto intentaremos averiguar qué piloto tuvo una menor diferencia entre la media de sus vueltas rápidas y la media de todas las vueltas de todos los Grandes Premios de este periodo de tiempo.
 
 Necesitaremos cruzar varias fuentes de datos para esto: 
 
@@ -730,40 +880,7 @@ Necesitaremos cruzar varias fuentes de datos para esto:
   \item \texttt{results.csv}
 \end{compactitem}
 
-El primer paso para llevar a cabo esta query es cargar las fuentes de datos mencionadas. Para ello necesitamos haber creado un objeto \texttt{SparkSession}. En nuestro caso, esto se hace de la siguiente manera en el objeto \texttt{Main}:
-
-\begin{lstlisting}
-  val spark: SparkSession = SparkSession
-    .builder()
-    .master("local[*]")
-    .getOrCreate()
-\end{lstlisting}
-
-En nuestro caso con estas opciones es suficiente, ya que estamos dedicando todos los núcleos de nuestra máquina local para las tareas que vayamos a realizar. Sin embargo, existen otras opciones que podríamos añadir si fuese necesario, como un nombre para la aplicación con \texttt{.appName("Nombre")}. Un parámetro que puede resultar muy útil modificar es el de \texttt{spark.sql.broadcastTimeout}, que por defecto tiene un valor de 300 (segundos), si no tenemos muchos recursos y vemos que la aplicación para inesperadamente con una excepción que muestra el mensaje \quotes{Could not execute broadcast in 300 secs}. Para hacer esto, la creación de la \texttt{SparkSession} sería tal que:
-
-\begin{lstlisting}
-  val spark: SparkSession = SparkSession
-    .builder()
-    .master("local[*]")
-    .config("spark.sql.broadcastTimeout", "36000")
-    .getOrCreate()
-\end{lstlisting}
-
-De igual manera, si quisiéramos modificar algún parámetro distinto, lo haríamos añadiendo más modificaciones tal que: 
-
-\begin{lstlisting}
-  val spark: SparkSession = SparkSession
-    .builder()
-    .master("local[*]")
-    .config("spark.some.config.option", "some-value")
-    .config("spark.some.config.option", "some-value")
-       ...
-    .getOrCreate()
-\end{lstlisting}
-
-Una vez tenemos el \texttt{SparkSession} creado correctamente, podemos usarlo para leer y escribir datos en distintos formatos, como CSV o Parquet. Además, nos permitirá crear DataFrames a partir distintos de tipos de datos, como Listas o Tuplas.
-
-En nuestro caso, buscamos leer la fuente de datos \texttt{races.csv}, ya que nos permite filtrar por temporadas mediante la columna \texttt{year}. Para ello, ejecutamos las siguientes líneas de código:
+Primero de todo, queremos leer la fuente de datos \texttt{races.csv}, ya que nos permite filtrar por temporadas mediante la columna \texttt{year}. Para ello, ejecutamos las siguientes líneas de código:
 
 \begin{lstlisting}
   val races = spark.read.format("csv")
@@ -815,7 +932,7 @@ Como ya ha quedado claro cómo se carga información en formato CSV, paso a la s
   \item Left Semi Join.
 \end{compactitem}
 
-Todos ellos definidos de la misma manera que en el Algebra de Conjuntos.
+Todos ellos definidos de la misma manera que en el Álgebra de Conjuntos.
 
 Para nuestro caso particular, utilizaremos un Right Outer Join, ya que nos queremos quedar con las vueltas de las carreras definidas en \texttt{races}.
 
@@ -1039,6 +1156,227 @@ Pasando ya a la presentación de los datos, se filtrarían los constructores dup
 
 Lo interesante de esta query es que se puede usar para cualquier periodo de tiempo. Podemos averiguar por ejemplo qué fabricante ha sido el más dominante en toda la historia de la competición y qué constructor ha dominado ciertos años concretos.
 
+\subsection{Análisis de temporada por piloto}
+
+Esta query consiste en obtener una serie de métricas de cada piloto en una determinada temporada. Para ello, se obtiene como parámetro la temporada en cuestión, que usaremos para filtrar.
+
+De nuevo, lo primero es obtener las distintas carreras que se han disputado en la temporada deseada. Para ello y como ya quedó explicado anteriormente, usaremos la tabla \texttt{races}, que filtraremos según la columna \texttt{year}.
+
+Una vez obtenidas las carreras, necesitamos obtener información personal de los pilotos para más adelante sustituir su identificador numérico por el código de tres letras personal. Como siempre, cargamos la tabla de la siguiente manera:
+
+\begin{lstlisting}
+val drivers = spark.read.format("csv")
+  .option("header", "true")
+  .option("sep", ",")
+  .load("../data/drivers.csv")
+\end{lstlisting}
+
+Tras esto, pasamos a crear las ventanas de datos que necesitaremos. En este caso, vamos a necesitar particionar los datos por piloto, por año, por piloto y carrera y de nuevo por piloto y carrera pero ordenando por vueltas. 
+
+\begin{lstlisting}
+val driverWindow = Window.partitionBy("driverId")
+val seasonWindow = Window.partitionBy("year")
+val driverRaceWindow = Window.partitionBy("driverId", "raceId")
+val raceDriverLapWindow = driverRaceWindow.orderBy("lap")
+\end{lstlisting}
+
+Antes de continuar, necesitaremos obtener ciertos valores estadísticos relacionados con las posiciones del piloto a lo largo de la temporada. En concreto queremos obtener todas las posiciones ganadas y perdidas a lo largo de la carrera y, ya que usaríamos la misma tabla, el número y porcentaje de vueltas que ha liderado a lo largo de la temporada.
+
+Para ello utilizaremos la tabla \texttt{lap$\_$times.csv}, que filtraremos según las carreras de la temporada con el filtro que conseguimos antes. Para realizar estos cálculos, es importante además que las columnas \texttt{lap} y \texttt{position} sean enteros, ya que vamos a hacer comparaciones y sumatorios.
+
+Todo esto lo podemos hacer de la siguiente manera:
+
+\begin{lstlisting}
+val driverStats = spark.read.format("csv")
+  .option("header", "true")
+  .option("sep", ",")
+  .load("../data/lap_times.csv")
+  .withColumn("position", col("position").cast(IntegerType)) 
+  .withColumn("lap", col("lap").cast(IntegerType)) 
+  .join(races, "raceId")
+\end{lstlisting}
+
+Para calcular si un piloto ha ganado o ha perdido su posición en una vuelta, tenemos que saber cuál es su posición en la vuelta siguiente. Para ello podemos utilizar la función \texttt{lag} de la siguiente manera:
+
+\begin{lstlisting}
+.withColumn("positionNextLap", lead(col("position"), 1).over(raceDriverLapWindow))
+\end{lstlisting}
+
+
+Con esto podemos calcular las vueltas ganadas o perdidas en cada vuelta de la siguiente manera:
+
+\begin{lstlisting}
+.withColumn("positionsGainedLap", when(col("positionNextLap") < col("position") , abs(col("position") - col("positionNextLap"))).otherwise(0))
+.withColumn("positionsLostLap", when(col("positionNextLap") > col("position"), abs(col("position") - col("positionNextLap"))).otherwise(0))
+\end{lstlisting}
+
+De esta manera, aplicando la función \texttt{abs}, que nos devuelve el valor absoluto de la columna que se pasa como argumento, conseguimos dos de las métricas que buscábamos.
+
+Para las otras dos métricas tendremos primero que conseguir las vueltas donde el piloto lideraba la carrera. Como tenemos información de todas las vueltas que han dado todos los pilotos en la temporada, obtener esta información no resulta complicado. Para esta query se ha realizado lo siguiente:
+
+\begin{lstlisting}
+.withColumn("lapLeader", when(col("position") === 1, 1).otherwise(0))
+\end{lstlisting}
+
+Podemos entender esta columna a la que he llamado \texttt{lapLeader} como si fuera un booleano. Si el piloto ha liderado la vuelta, valdrá \texttt{1} y en caso contrario \texttt{0}. Esto resulta muy útil ya que podemos obtener el número de vueltas que un piloto ha liderado al hacer un sumatorio de todos los elementos de esta columna particionando por piloto, como se puede ver a continuación:
+
+\begin{lstlisting}
+.withColumn("lapsLed", sum(col("lapLeader")).over(driverWindow))
+\end{lstlisting}
+
+Tras esto podemos obtener el porcentaje de vueltas que un piloto ha liderado dividiendo este valor recién calculado entre el total de vueltas dadas.
+
+\begin{lstlisting}
+.withColumn("totalLaps", sum(col("lapLeader")).over(seasonWindow))
+.withColumn("percLapsLed", round(col("lapsLed") / col("totalLaps"), 2))
+\end{lstlisting}
+
+Finalmente, eliminamos duplicados y presentamos el DataFrame como consideremos oportuno. En este caso, necesitaré los cuatro valores calculados, el identificador de piloto y el de carrera. Al final la query para esta tabla quedaría tal que:
+
+\begin{lstlisting}
+val driverStats = spark.read.format("csv")
+  .option("header", "true")
+  .option("sep", ",")
+  .load("../data/lap_times.csv")
+
+  .withColumn("position", col("position").cast(IntegerType)) 
+  .withColumn("lap", col("lap").cast(IntegerType)) 
+  .join(races, "raceId")
+
+  .withColumn("positionNextLap", lead(col("position"), 1).over(raceDriverLapWindow))
+  .withColumn("positionsGainedLap", when(col("positionNextLap") < col("position") , abs(col("position") - col("positionNextLap"))).otherwise(0))
+  .withColumn("positionsLostLap", when(col("positionNextLap") > col("position"), abs(col("position") - col("positionNextLap"))).otherwise(0))
+  .withColumn("positionsGained", sum(col("positionsGainedLap")).over(driverRaceWindow))
+  .withColumn("positionsLost", sum(col("positionsLostLap")).over(driverRaceWindow))
+  .withColumn("lapLeader", when(col("position") === 1, 1).otherwise(0))
+  .withColumn("lapsLed", sum(col("lapLeader")).over(driverWindow))
+  .withColumn("totalLaps", sum(col("lapLeader")).over(seasonWindow))
+  .withColumn("percLapsLed", round(col("lapsLed") / col("totalLaps"), 2))
+  .select("raceId", "driverId", "positionsGained", "positionsLost", "lapsLed", "percLapsLed")
+  .dropDuplicates()
+\end{lstlisting}
+
+El siguiente paso es obtener la tabla final, y para ello partiremos de la tabla \texttt{results}. De nuevo necesitaremos convertir a entero ciertas columnas. En este caso \texttt{position}, \texttt{grid} y \texttt{points}.
+
+Filtramos las carreras de la temporada en cuestión y ampliamos la información con la tabla \texttt{driverStats} que acabamos de obtener y \texttt{drivers}, esta última para convertir el id de piloto en su código de 3 caracteres. Todo esto lo hacemos de la siguiente manera:
+
+\begin{lstlisting}
+val results = spark.read.format("csv")
+  .option("header", "true")
+  .option("sep", ",")
+  .load("../data/results.csv")
+
+  .withColumn("position", col("position").cast(IntegerType))    
+  .withColumn("grid", col("grid").cast(IntegerType))    
+  .withColumn("points", col("points").cast(IntegerType))
+
+  .join(races, "raceId")
+  .join(driverStats, Seq("raceId", "driverId"), "left")
+  .join(drivers, "driverId")  
+\end{lstlisting}
+
+Para esta query tendremos que calcular el número de puntos obtenidos por el piloto, la media de puntos, el porcentaje de puntos en relación al ganador del campeonato, el número total de podios, el porcentaje de veces que el piloto ha acabado en el podio, el diferencial entre la posición de salida y en la que termina, la media y el total de posiciones perdidas y ganadas y el número y porcentaje de vueltas lideradas.
+
+Antes de nada tenemos que calcular 3 valores que servirán para más adelante calcular el resto de métricas. Estos son la media de puntos, la media de puntos más alta y si el piloto ha terminado en podio o no.
+
+De forma similar a lo visto anteriormente, para ver si un piloto ha acabado en podio podemos crear una columna llamada \texttt{podium}, que valdrá \texttt{1} si el piloto acaba en las tres primeras posiciones y \texttt{0} en caso contrario.
+
+\begin{lstlisting}
+.withColumn("podium", when(col("position") === 1 || col("position") === 2 ||col("position") === 3, lit(1)).otherwise(lit(0)))
+\end{lstlisting}
+
+La media de puntos es sencilla de calcular, y la media más alta se calcula sobre el valor anterior de la siguiente manera:
+
+\begin{lstlisting}
+.withColumn("averagePoints", round(avg(col("points")).over(driverWindow), 2))
+.withColumn("maxAvgPoints", max(col("averagePoints")).over(seasonWindow))
+\end{lstlisting}
+
+Una vez obtenidos estos 3 valores podemos calcular el resto. En general todos son o bien sumatorios o medias sobre ventanas de datos concretas. Para presentar los datos de manera más accesible, se redondean a dos decimales usando la funciíon \texttt{round}.
+
+Llegados a este punto me gustaría detenerme para explicar la función \texttt{select}. A simple vista parece sencilla si la usamos como lo haríamos en SQL o como hemos hecho hasta ahora, pero existe otra manera de usarla. Si nos vamos a la definición de la función en la documentación de Spark, veremos que le podemos pasar o bien varios String o varios objetos de tipo \texttt{Column}. Si utilizamos esta función de esta última manera, se puede obtener una cierta mejora en el plan de Spark y, por lo tanto, es recomendable utilizarla así.
+
+En este caso, he decidido mostrar cómo finalizaríamos la query usando un \texttt{select} que recibe columnas en lugar de String. 
+
+\begin{lstlisting}
+.select(
+  col("code"),
+  sum(col("points")).over(driverWindow).as("champPoints"),
+  col("averagePoints"),
+  round(col("averagePoints") / col("maxAvgPoints"),2).as("pointPercent"),
+  sum(col("podium")).over(driverWindow).as("totalPodiums"),
+  round(sum(col("podium")).over(driverWindow) / count(col("podium")).over(driverWindow), 2).as("podiumPercent"),
+  round(avg(col("position") - col("grid")).over(driverWindow), 2).as("positionDelta"),
+  round(avg(col("positionsLost")).over(driverWindow), 2).as("avgPositionsLost"),
+  round(avg(col("positionsGained")).over(driverWindow), 2).as("avgPositionsWon"),
+  sum(col("positionsLost")).over(driverWindow).as("totalPositionsLost"),
+  sum(col("positionsGained")).over(driverWindow).as("totalPositionsWon"),
+  col("lapsLed"),
+  col("percLapsLed")
+)
+\end{lstlisting}
+
+Como se puede observar, podemos pasarle una columna directamente o una operación sobre ciertas columnas que devuelva un objeto de tipo \texttt{Column} a la que damos nombre con \texttt{as}.
+
+Para calcular todas estas métricas se utiliza siempre una ventana de datos que particiona por piloto, y en los que no se particiona es porque ya existe solamente una entrada por piloto.
+
+Como queda algún registro con valor \texttt{null}, nos convendría tratar de alguna manera estos casos, ya que se pretende representar todas estas métricas gráficamente. Para ello se utilizan las funciones presentes en el paquete \texttt{na}. Hay tres funciones que cubrirán la mayoría de casos de uso que necesitemos. Estas son: \texttt{fill}, \texttt{replace} y \texttt{drop}. Su función la indica el nombre: \texttt{fill} rellena los nulos con un literal que pasamos por parámetro, \texttt{replace} sustituye los nulos según se especifique y \texttt{drop} elimina las filas que contengan nulos, con la opción de especificar en qué columnas comprueba la existencia de estos valores.
+
+Para la función \texttt{replace} he encontrado muy útil que puede recibir como parámetro un objeto de tipo \texttt{Map}, en el que la clave será el nombre de la columna y el valor será el valor que queramos que sustituya a los nulos. Un ejemplo podría ser el siguiente: dado un DataFrame en el que tenemos tres columnas llamadas \texttt{id}, \texttt{name} y \texttt{salary}, si utilizásemos la función \texttt{na.replace()} pasándole como parámetro \texttt{Map(\quotes{name} --> \quotes{Pedro}, \quotes{salary} --> 0)} significaría que en la columna \texttt{name} los nulos pasarán a valer "Pedro" y para la columna \texttt{salary}, los valores nulos valdrán cero.
+
+En nuestro caso, como se ha observado que los nulos aparecen cuando el piloto no tiene ninguna vuelta que haya liderado y solo en ese caso, podemos utilizar \texttt{na.fill(0)} para solventar el problema.
+
+Tras esto solo quedaría eliminar entradas duplicadas y ordenar según la métrica que queramos mostrar gráficamente. Todo esto lo hacemos de la siguiente manera:
+
+\begin{lstlisting}
+.na.fill(0)
+.dropDuplicates(Seq("code"))
+.sort(col("avgPositionsLost").desc)  
+\end{lstlisting}
+
+Al final, el código completo de la query queda tal que:
+
+\begin{lstlisting}
+val results = spark.read.format("csv")
+  .option("header", "true")
+  .option("sep", ",")
+  .load("../data/results.csv")
+
+  .withColumn("position", col("position").cast(IntegerType))    
+  .withColumn("grid", col("grid").cast(IntegerType))    
+  .withColumn("points", col("points").cast(IntegerType))
+
+  .join(races, "raceId")
+  .join(driverStats, Seq("raceId", "driverId"), "left")
+  .join(drivers, "driverId")
+
+  .withColumn("podium", when(col("position") === 1 || col("position") === 2 ||col("position") === 3, lit(1)).otherwise(lit(0)))
+  .withColumn("averagePoints", round(avg(col("points")).over(driverWindow), 2))
+  .withColumn("maxAvgPoints", max(col("averagePoints")).over(seasonWindow))
+
+  .select(
+    col("code"),
+    sum(col("points")).over(driverWindow).as("champPoints"),
+    col("averagePoints"),
+    round(col("averagePoints") / col("maxAvgPoints"),2).as("pointPercent"),
+    sum(col("podium")).over(driverWindow).as("totalPodiums"),
+    round(sum(col("podium")).over(driverWindow) / count(col("podium")).over(driverWindow), 2).as("podiumPercent"),
+    round(avg(col("position") - col("grid")).over(driverWindow), 2).as("positionDelta"),
+    round(avg(col("positionsLost")).over(driverWindow), 2).as("avgPositionsLost"),
+    round(avg(col("positionsGained")).over(driverWindow), 2).as("avgPositionsWon"),
+    sum(col("positionsLost")).over(driverWindow).as("totalPositionsLost"),
+    sum(col("positionsGained")).over(driverWindow).as("totalPositionsWon"),
+    col("lapsLed"),
+    col("percLapsLed")
+  )
+
+  .na.fill(0)
+  .dropDuplicates(Seq("code"))
+  .sort(col("avgPositionsLost").desc)
+\end{lstlisting}
+
+
+
 
 \section{Despliegue en AWS EMR}
 
@@ -1049,7 +1387,38 @@ Lo interesante de esta query es que se puede usar para cualquier periodo de tiem
 \label{sec:expVal}
 \newpage
 
+El primer paso para llevar a cabo esta query es cargar las fuentes de datos mencionadas. Para ello necesitamos haber creado un objeto \texttt{SparkSession}. En nuestro caso, esto se hace de la siguiente manera en el objeto \texttt{Main}:
 
+\begin{lstlisting}
+  val spark: SparkSession = SparkSession
+    .builder()
+    .master("local[*]")
+    .getOrCreate()
+\end{lstlisting}
+
+En nuestro caso con estas opciones es suficiente, ya que estamos dedicando todos los núcleos de nuestra máquina local para las tareas que vayamos a realizar. Sin embargo, existen otras opciones que podríamos añadir si fuese necesario, como un nombre para la aplicación con \texttt{.appName("Nombre")}. Un parámetro que puede resultar muy útil modificar es el de \texttt{spark.sql.broadcastTimeout}, que por defecto tiene un valor de 300 (segundos), si no tenemos muchos recursos y vemos que la aplicación para inesperadamente con una excepción que muestra el mensaje \quotes{Could not execute broadcast in 300 secs}. Para hacer esto, la creación de la \texttt{SparkSession} sería tal que:
+
+\begin{lstlisting}
+  val spark: SparkSession = SparkSession
+    .builder()
+    .master("local[*]")
+    .config("spark.sql.broadcastTimeout", "36000")
+    .getOrCreate()
+\end{lstlisting}
+
+De igual manera, si quisiéramos modificar algún parámetro distinto, lo haríamos añadiendo más modificaciones tal que: 
+
+\begin{lstlisting}
+  val spark: SparkSession = SparkSession
+    .builder()
+    .master("local[*]")
+    .config("spark.some.config.option", "some-value")
+    .config("spark.some.config.option", "some-value")
+       ...
+    .getOrCreate()
+\end{lstlisting}
+
+Una vez tenemos el \texttt{SparkSession} creado correctamente, podemos usarlo para leer y escribir datos en distintos formatos, como CSV o Parquet. Además, nos permitirá crear DataFrames a partir distintos de tipos de datos, como Listas o Tuplas.
 
 
 
@@ -1132,121 +1501,6 @@ Las citas del texto Autor \cite{giaquinta}, Autor \cite{fortune}, Autor \cite{fo
 % Primer apéndice
 \chapter{Apéndice de figuras}
 \label{sec:apendice}
-
-\section{Tablas de entrada}
-
-\begin{figure}
-  \includegraphics[scale=0.4]{circuits_table.png}
-  \centering
-  \caption{Tabla circuits}
-  \label{fig:circuits}
-  \centering
-\end{figure}
-
-\begin{figure}
-  \includegraphics[scale=0.4]{constructor_results_table.png}
-  \centering
-  \caption{Tabla constructor$\_$results}
-  \label{fig:constructorres}
-  \centering
-\end{figure}
-
-\begin{figure}
-  \includegraphics[scale=0.4]{constructor_standings_table.png}
-  \centering
-  \caption{Tabla constructor$\_$standings}
-  \label{fig:constructorstands}
-  \centering
-\end{figure}
-
-\begin{figure}
-  \includegraphics[scale=0.4]{constructors_table.png}
-  \centering
-  \caption{Tabla constructors}
-  \label{fig:constructors}
-  \centering
-\end{figure}
-
-\begin{figure}
-  \includegraphics[scale=0.4]{driver_standings_table.png}
-  \centering
-  \caption{Tabla driver$\_$standings}
-  \label{fig:drivstands}
-  \centering
-\end{figure}
-
-\begin{figure}
-  \includegraphics[scale=0.4]{lap_times_table.png}
-  \centering
-  \caption{Tabla lap$\_$times}
-  \label{fig:laptimestab}
-  \centering
-\end{figure}
-
-\begin{figure}
-  \includegraphics[scale=0.4]{pit_stop_table.png}
-  \centering
-  \caption{Tabla pit$\_$stops}
-  \label{fig:pitstops}
-  \centering
-\end{figure}
-
-\begin{figure}
-  \includegraphics[scale=0.4]{qualifying_table.png}
-  \centering
-  \caption{Tabla qualifying}
-  \label{fig:quali}
-  \centering
-\end{figure}
-
-\begin{figure}
-  \includegraphics[scale=0.4]{races_table.png}
-  \centering
-  \caption{Tabla races}
-  \label{fig:races}
-  \centering
-\end{figure}
-
-\begin{figure}
-  \includegraphics[scale=0.27]{results_table.png}
-  \centering
-  \caption{Tabla results}
-  \label{fig:resultstab}
-  \centering
-\end{figure}
-
-\begin{figure}
-  \includegraphics[scale=0.4]{season_table.png}
-  \centering
-  \caption{Tabla seasons}
-  \label{fig:seasonstable}
-  \centering
-\end{figure}
-
-\begin{figure}
-  \includegraphics[scale=0.4]{status_table.png}
-  \centering
-  \caption{Tabla status}
-  \label{fig:statustable}
-  \centering
-\end{figure}
-
-\begin{figure}
-  \includegraphics[scale=0.4]{driver_table.png}
-  \centering
-  \caption{Tabla drivers}
-  \label{fig:driverstable}
-  \centering
-\end{figure}
-
-\subsubsection{Diagrama Entidad-Relación}
-\begin{figure}
-  \includegraphics[scale=0.4]{dataset_visualization.png}
-  \centering
-  \caption{Diagrama Entidad-Relación}
-  \label{fig:datavisualization}
-  \centering
-\end{figure}
 
 
 
