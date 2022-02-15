@@ -863,8 +863,6 @@ Finalmente la tabla contiene información tal que:
 \end{figure}
 
 
-\section{Programación de queries en PySpark}
-
 
 \section{Programación de queries en Scala/Spark}
 
@@ -1374,6 +1372,133 @@ val results = spark.read.format("csv")
   .dropDuplicates(Seq("code"))
   .sort(col("avgPositionsLost").desc)
 \end{lstlisting}
+
+\section{Programación de queries en PySpark}
+
+\subsection{Mejor temporada para el espectador}
+En esta query vamos a intentar averiguar cuál ha sido la temporada más interesante desde el punto de vista del espectador. Para ello se van a calcular tres métricas: el número de adelantamientos, el número de pilotos distintos que han liderado el campeonato y el número de pilotos distintos que han ganado una carrera en dicha temporada.
+
+Ya que se van a utilizar las tablas \texttt{lap$\_$times}, \texttt{driver$\_$standings} y \texttt{results}, vamos a necesitar mapear cada \texttt{raceId}, presente en todas estas tablas, con la correspondiente temporada en la que se disputó la carrera. Para ello utilizaremos la tabla \texttt{races}, quedándonos solamente con las columnas \texttt{raceId} y \texttt{year}. El código es el siguiente:
+
+\begin{lstlisting}
+races = spark.read.format("csv")\
+  .option("header", "true")\
+  .option("sep", ",")\
+  .load("../data/races.csv")\
+  .select("raceId", "year")
+\end{lstlisting}
+
+Solamente en este trozo pequeño de código se pueden ver algunas diferencias con la API de Scala. Principalmente se ve que se tiene que añadir el carácter \texttt{\textbackslash} al final de cada línea en la que se realiza una operación sobre el DataFrame. Iremos describiendo el resto de diferencias según vayan apareciendo.
+
+También podemos aprovechar para crear las tres ventanas de particionado que vamos a usar. Estas son las siguientes:
+
+\begin{lstlisting}
+seasonWindow = Window.partitionBy("year")
+driverRaceWindow = Window.partitionBy("driverId", "raceId")
+raceDriverLapWindow = Window.partitionBy("driverId", "raceId").orderBy("lap")
+\end{lstlisting}
+
+Una vez tenemos este DataFrame con una correspondencia directa entre carrera y temporada y las ventanas de particionado, podemos calcular el número de adelantamientos. Para ello hemos de cargar la tabla \texttt{lap$\_$times}, que contiene información de todas las vueltas de cada piloto.
+
+\begin{lstlisting}
+overtakes = spark.read.format("csv")\
+  .option("header", "true")\
+  .option("sep", ",")\
+  .load("../data/lap_times.csv")\
+\end{lstlisting}
+
+Después, viendo que tanto la columna \texttt{position} como \texttt{lap} son de tipo \texttt{String}, debemos pasarlo a entero para poder operar con ellas. Por norma general si quisiéramos comprobar una igualdad con ellas, como comprobar si estamos en la segunda vuelta, no tendríamos por qué hacer esta conversión de tipos, pero como vamos a ordenar la ventana de particionado por vuelta sí es necesario. Esto es porque dados los \texttt{String} \quotes{1}, \quotes{2} y \quotes{19}, el orden de menor a mayor sería \quotes{1}, \quotes{19} y \quotes{2}. La conversión de tipos la hacemos de la siguiente manera:
+
+\begin{lstlisting}
+  .withColumn("position", F.col("position").cast(T.IntegerType()))\
+  .withColumn("lap", F.col("lap").cast(T.IntegerType()))\
+\end{lstlisting}
+
+Aqui se pueden apreciar otra diferencia respecto a Scala. Por norma general, el código en PySpark suele ser mucho más explícito por la naturaleza del lenguaje. Python y Scala son opuestos en este aspecto. 
+
+Habiendo convertido los tipos de dichas columnas, debemos completar la información de nuestro DataFrame estableciendo una correlación entre carrera y temporada. Esto lo conseguimos interseccionándolo con el DataFrame que obtuvimos anteriormente de la siguiente manera:
+
+\begin{lstlisting}
+.join(races, "raceId")\  
+\end{lstlisting}
+
+Si no se especifica, por defecto Spark realiza una intersección de tipo \quotes{inner}.
+
+Lo siguiente que tenemos que obtener es la posición de cada piloto en la siguiente vuelta a la que se hace referencia en la fila actual. Para ello, necesitamos particionar por carrera y piloto y ordenar la ventana de datos por vuelta. En este caso utilizamos la función \texttt{lead}, que nos devuelve la columna que proporcionamos como parámetro, pero con las entradas desplazadas \quotes{hacia arriba} el número de entradas que se indique como parámetro. Es imprescindible que la ventana que utilicemos esté ordenada. En resumidas cuentas, tendríamos en la misma entrada la posición en esta vuelta y en la siguiente. Existe otra función llamada \texttt{lag} que tiene la misma funcionalidad, pero desplaza las entradas \quotes{hacia abajo}. Para ambas funciones hay que tener en cuenta que siempre habrá una entrada de la columna desplazada que contenga un valor nulo, ya sea la primera o la última.
+
+Teniendo la información de la siguiente vuelta, podemos ver el número de adelantamientos del piloto en esa vuelta. Para ello, si la posición en la siguiente vuelta es menor que en la actual se devuelve la diferencia y en otro caso se devuelve cero.
+
+\begin{lstlisting}
+.withColumn("positionNextLap", F.lead(F.col("position"), 1).over(raceDriverLapWindow))\
+.withColumn("positionsGainedLap", F.when(F.col("positionNextLap") < F.col("position") , F.abs(F.col("position") - F.col("positionNextLap"))).otherwise(0))\
+\end{lstlisting}
+
+Tras esto, se pueden agrupar los datos según la temporada y se hace el sumatorio de los adelantamientos tal que:
+
+\begin{lstlisting}
+.groupBy("year")\
+.agg(F.sum(F.col("positionsGainedLap")).alias("positionsGainedSeason"))\
+\end{lstlisting}
+
+Por último, querríamos obtener la posición que ocuparía cada temporada si las ordenásemos de más adelantamientos a menos. Esto lo podemos conseguir con la función \texttt{rank}, que se utilizará sobre una ventana sin particionar y que esté ordenada únicamente por la columna que contiene el número de adelantamientos.
+
+\begin{lstlisting}
+.withColumn("rankPositionsGained", F.rank().over(Window.orderBy(F.col("positionsGainedSeason").desc())))
+\end{lstlisting}
+
+La siguiente métrica que queremos calcular es el número de líderes distintos a lo largo de cada temporada. Para ello cargamos la tabla \texttt{driver$\_$standings} en lugar de \texttt{lap$\_$times} y completamos la información de las temporadas al igual que antes. Tras esto, tendremos la clasificación al final de cada carrera, con una entrada por piloto, carrera y temporada. Como solo nos interesan los líderes, filtramos el DataFrame para quedarnos con las entradas donde \texttt{position} valga \texttt{1}
+
+\begin{lstlisting}
+winnersTroughoutSeason = spark.read.format("csv")\
+  .option("header", "true")\
+  .option("sep", ",")\
+  .load("../data/results.csv")\
+  .join(races, "raceId")\
+  .where(F.col("position") == 1)\
+\end{lstlisting}
+
+Como es bastante probable que un piloto lidere el campeonato en más de un punto a lo largo de la temporada, tenemos que deshacernos de las entradas duplicadas cada temporada:
+
+\begin{lstlisting}
+.dropDuplicates(["driverId", "position", "year"])\
+\end{lstlisting}
+
+Tras esto, nuestro DataFrame contendrá solamente los distintos pilotos que han liderado el campeonato. Como lo que queremos es saber el conteo de estos pilotos para cada temporada, debemos agrupar los datos por temporada y utilizar la función \texttt{approx$\_$count$\_$distinct} sobre la columna \texttt{driverId}.
+
+\begin{lstlisting}
+.groupBy("year")\
+.agg(F.approx_count_distinct(F.col("driverId")).alias("distinctLeaders"))\  
+\end{lstlisting}
+
+Tras esto, tendremos en nuestro DataFrame una entrada por cada año.
+
+Por último, como para la métrica anterior, crearemos una columna que nos proporcione la clasificación de las temporadas en función a la métrica que acabamos de calcular:
+
+\begin{lstlisting}
+.withColumn("rankDistinctLeaders", F.rank().over(Window.orderBy(F.col("distinctLeaders").desc())))  
+\end{lstlisting}
+
+Para la última métrica que queremos calcular podemos reutilizar prácticamente entera la query anterior. La única diferencia será que se utilizará la tabla \texttt{results}. El código es el siguiente:
+
+\begin{lstlisting}
+winnersTroughoutSeason = spark.read.format("csv")\
+  .option("header", "true")\
+  .option("sep", ",")\
+  .load("../data/results.csv")\
+  .join(races, "raceId")\
+  .where(F.col("position") == 1)\
+  .dropDuplicates(["driverId", "position", "year"])\
+  .groupBy("year")\
+  .agg(F.approx_count_distinct(F.col("driverId")).alias("distinctWinners"))\
+  .withColumn("rankDistinctWinners", F.rank().over(Window.orderBy(F.col("distinctWinners").desc())))
+\end{lstlisting}
+
+
+
+
+
+
+
 
 
 
