@@ -823,7 +823,7 @@ Contiene información sobre todos los pilotos que han competido a lo largo de la
 \end{figure}
 
 
-\subsubsection{Tabla \texttt{drivers constructor season}}
+\subsubsection{Tabla \texttt{drivers constructor season}} \label{drivconstseasontabexplanation}
 
 Esta tabla no estaba originalmente en el conjunto de datos, pero resultó necesario crear una tabla nueva que relacionase cada piloto con su constructor en cada temporada. Principalmente se necesita para poder hacer comparativas entre pilotos del mismo equipo o bien globalmente o bien por temporadas. 
 
@@ -1492,6 +1492,207 @@ winnersTroughoutSeason = spark.read.format("csv")\
   .agg(F.approx_count_distinct(F.col("driverId")).alias("distinctWinners"))\
   .withColumn("rankDistinctWinners", F.rank().over(Window.orderBy(F.col("distinctWinners").desc())))
 \end{lstlisting}
+
+Una vez calculadas las tres métricas que necesitamos, debemos encontrar una manera de establecer una clasificación global teniendolas en cuenta. En este caso, se ha decidido crear una función que para cada entrada calcule la media de cada clasificación individual. De esta manera, si una temporada ha quedado primera en más adelantamientos, tercera en más líderes de la clasificación y segunda en más ganadores distintos, se haría la media de 1, 3 y 2.
+
+Para ello usamos una función definida por el usuario, o UDF que recibirá como parámetro una lista y devolverá su media. El código es el siguiente:
+
+\begin{lstlisting}
+def averageRank(cols):
+  return sum(cols) / len(cols)
+
+averageRank = F.udf(averageRank, T.DoubleType())
+\end{lstlisting}
+
+Es importante definir el tipo de datos de la salida de la función. En este caso, queremos devolver la media como entero, ya que no nos interesan los decimales. En caso de no definir tipo de salida, se devolverá un \texttt{StringType} que puede dar problemas a la hora de ordenar más adelante.
+
+Para concluir, queremos interseccionar las tablas de todas las métricas según la columna \texttt{year}. En este caso podemos definir el join como \texttt{inner}, ya que al hacer la media no nos interesa que haya ningún nulo, en el caso extraño de que aparezca una temporada sin alguna métrica. Después aplicamos nuestra UDF a las columnas que queremos y preparamos el DataFrame para mostrarlo por pantalla. El código es el siguiente:
+
+\begin{lstlisting}
+overtakes\
+  .join(leadersTroughoutSeason, "year", "inner")\
+  .join(winnersTroughoutSeason, "year", "inner")\
+  .withColumn("avgRank", averageRank(F.array(F.col("rankDistinctWinners"), F.col("rankDistinctLeaders"), F.col("rankPositionsGained"))))\
+  .withColumn("overallRank", F.rank().over(Window.orderBy("avgRank")))\
+  .drop("rankDistinctWinners", "rankDistinctLeaders", "rankPositionsGained", "avgRank")\
+  .sort("overallRank")\
+  .show()  
+\end{lstlisting}
+
+\subsection{Mejor piloto de la historia}
+
+Para averiguar cuál es el mejor piloto de la historia, debemos fijarnos en varios aspectos del piloto, como sus logros individuales, sin comparar con nadie más a la hora de hacer el cálculo y sus logros relativos a los compañeros de equipo a lo largo de su carrera.
+
+El primer paso para programar esta query es construir varios DataFrames auxiliares. Necesitaremos una tabla que relacione la carrera con la temporada en que tuvo lugar,  otra que nos relacione el identificador de piloto con su nombre completo, una que nos proporcione información sobre qué carreras fueron las últimas de cada temporada y por último una que establezca una relación entre los pilotos que formaron un equipo en cada temporada.
+
+Para obtener la primera de ellas se cargará la tabla \texttt{races} y nos quedaremos con las columnas \texttt{raceId} y \texttt{year}. 
+
+\begin{lstlisting}
+races = spark.read.format("csv")\
+  .option("header", "true")\
+  .option("sep", ",")\
+  .load("../data/races.csv")\
+  .select("raceId", "year")
+\end{lstlisting}
+
+Para la segunda cargaremos la tabla \texttt{drivers} y nos quedaremos con las columnas \texttt{driverId} y una concatenación de las columnas \texttt{forename} y \texttt{surname} que llamaremos \texttt{fullName}.
+
+\begin{lstlisting}
+driverInfo = spark.read.format("csv")\
+  .option("header", "true")\
+  .option("sep", ",")\
+  .load("../data/drivers.csv")\
+  .select(F.col("driverId"),
+    F.concat(F.col("forename"), F.lit(" "), F.col("surname")).alias("fullName"))
+\end{lstlisting}
+
+También necesitamos obtener la última carrera de cada temporada. Para ello cargamos de nuevo la tabla \texttt{races} y convertimos la columna \texttt{round} a tipo \texttt{IntegerType}. Acto seguido, utilizamos una ventana que particione los datos según la columna \texttt{year} para obtener el máximo de la \texttt{round}. Por último, nos quedamos con las entradas donde \texttt{round} sea igual al máximo obtenido. El código es el siguiente:
+
+\begin{lstlisting}
+lastRaces = spark.read.format("csv")\
+  .option("header", "true")\
+  .option("sep", ",")\
+  .load("../data/races.csv")\
+  .withColumn("round", F.col("round").cast(T.IntegerType()))\
+  .withColumn("max", F.max(F.col("round")).over(Window.partitionBy("year")))\
+  .where(F.col("round") == F.col("max"))\
+  .select("raceId", "year")
+\end{lstlisting}
+
+
+Adicionalmente, en algún momento necesitaremos filtrar pilotos para eliminar outliers. En el caso de esta query, se ha concluido que estos serán aquellos pilotos que no hayan terminado cinco carreras o más. Para ello, cargamos la tabla \texttt{results} y nos fijamos en la columna \texttt{statusId}. Si el valor es \texttt{1}, entonces quiere decir que el piloto ha pasado por meta. Para calcular el número de carreras que ha terminado, podemos crear una columna nueva que contenga un \texttt{1} si el \texttt{statusId} tiene ese valor y \texttt{0} en caso contrario.
+
+\begin{lstlisting}
+driverFilter = spark.read.format("csv")\
+  .option("header", "true")\
+  .option("sep", ",")\
+  .load("../data/results.csv")\
+  .withColumn("finished", F.when(F.col("statusId") == 1, 1).otherwise(0))\
+\end{lstlisting}
+
+Acto seguido podemos hacer un sumatorio de esta columna particionando por piloto y después filtrar los que no lleguen a cinco. Al poder tener varias entradas por piloto, usamos la función \texttt{distinct()} para deshacernos de estos valores repetidos.
+
+\begin{lstlisting}
+  .withColumn("numberOfFinishes", F.sum(F.col("finished")).over(driverWindow))\
+  .where(F.col("numberOfFinishes") < 5)\
+  .select("driverId")\
+  .distinct()
+\end{lstlisting}
+
+Por último, como ya comentamos cómo obtener una relación entre pilotos, fabricante y temporada en la sección  \ref{drivconstseasontabexplanation}, no entraremos al detalle de cómo se obtiene y simplemente cargaremos dicha tabla con:
+
+\begin{lstlisting}
+driverConstSeasonMap = spark.read.format("csv")\
+  .option("header", "true")\
+  .option("sep", ",")\
+  .load("../data/drivers_constr_season.csv")
+\end{lstlisting}
+
+También necesitaremos las siguientes ventanas de datos auxiliares:
+
+\begin{lstlisting}
+raceDriverLapWindow = Window.partitionBy("driverId", "raceId").orderBy("lap")
+driverWindow = Window.partitionBy("driverId")
+seasonWindow = Window.partitionBy("year")
+teammateWindow = Window.partitionBy("year", "constructorId")
+raceConstructorWindow = Window.partitionBy("raceId", "constructorId")
+seasonConstructorWindow = Window.partitionBy("year", "constructorId")
+driverSeasonWindow = Window.partitionBy("driverId", "year")
+\end{lstlisting}
+
+
+A continuación podemos pasar a la primera query, con la que trataremos de averiguar el porcentaje de temporadas en las que, a lo largo de su carrera, un ha terminado por delante de su compañero de equipo.
+
+
+Para ello, primero cargaremos la tabla \texttt{driver$\_$standings}, que interseccionaremos con \texttt{lastRaces} para quedarnos con la clasificación en la última carrera de cada temporada y con \texttt{driverConstSeasonMap} para completar con la información que nos proporciona dicha tabla.
+
+\begin{lstlisting}
+driverDomination = spark.read.format("csv")\
+  .option("header", "true")\
+  .option("sep", ",")\
+  .load("../data/driver_standings.csv")\
+  .join(lastRaces, ["raceId"], "right")\
+  .join(driverConstSeasonMap, ["driverId", "year"], "left")\
+\end{lstlisting}
+
+El siguiente paso es averiguar el porcentaje de puntos que cada piloto ha obtenido para el equipo en cada temporada. Para ello dividiremos los puntos obtenidos por un piloto entre el total del equipo, calculado haciendo un sumatorio de los puntos según la ventana \texttt{teammateWindow}.
+
+Para ver si un piloto ha dominado a su compañero de equipo en una temporada en concreto, podemos usar este último valor calculado y averiguar el máximo entre los integrantes del equipo. Cuando en una entrada de la tabla tengamos que un piloto iguala en puntos a este máximo, sabremos que ha sido el dominante en esa temporada.
+
+\begin{lstlisting}
+.withColumn("teamPointsPerc", F.col("points") / F.sum(F.col("points")).over(teammateWindow))\
+.withColumn("bestOfTeam", F.max(F.col("teamPointsPerc")).over(teammateWindow))\
+.withColumn("dominatedTeammate", F.when(F.col("teamPointsPerc") == F.col("bestOfTeam"), 1).otherwise(0))\
+\end{lstlisting}
+
+Con este último cálculo podemos ver cuántas temporadas ha dominado cada piloto, pero es más útil para nosotros relativizarlo a la carrera de cada piloto. Por ejemplo, si un piloto compite cuatro años y domina tres de ellos, su total de temporadas dominadas será tres, mientras que el porcentaje de su carrera en la que ha dominado a su compañero de equipo es del 75\%. Esto nos es útil ya que el número de temporadas en las que un piloto compite en el deporte puede variar drásticamente, desde una sola temporada a veinte por poner alguna cifra.
+
+Con esto en mente, podemos contar el número de temporadas en las que ha dominado y dividirlo entre el número de temporadas en las que ha competido, utilizando para ambos parámetros una ventana de datos que particione por piloto
+
+\begin{lstlisting}
+.withColumn("dominationPerc", F.round(F.sum(F.col("dominatedTeammate")).over(driverWindow) / F.count(F.col("year")).over(driverWindow) * 100, 2))\
+\end{lstlisting}
+
+Calculada esta métrica, podemos pasar a calcular el resto. Para ello primero cargamos la tabla \texttt{results} y filtramos los outliers interseccionando con la tabla \texttt{driverFilter}. Para llevar a cabo este filtrado, debemos hacer la intersección de tipo \texttt{leftanti}. También interseccionamos con la tabla \texttt{races} para obtener información sobre la temporada en la que se llevó a cabo cada carrera.
+
+Como las columnas \texttt{position} y \texttt{grid} son de tipo \texttt{String}, debemos cambiarlas a tipo entero y tratar los nulos en ambos casos. Esto último es importante, ya que al ordenar estas columnas los nulos quedan por encima del resto. Estos nulos aparecen debido a que no todas las entradas de esta columna contienen números. En el caso de que un piloto no haya terminado la carrera aparecerá un \quotes{\texttt{$\backslash$N}}.
+
+Para encargarnos de estos valores nulos, se puede usar la función \texttt{na.fill()}, que en este caso recibirá un diccionario cuya clave será un \texttt{String} que denote el nombre de la columna y el valor será el que queremos dar en caso de encontrar un nulo. Para este caso se ha decidido que los nulos se sustituyan por el valor \texttt{100}, ya que en ambos casos nunca ha habido una carrera con ese número de competidores, asegurando así que siempre aparecerá el último si quisiéramos ordenar de menor a mayor.
+
+\begin{lstlisting}
+teammateComparison = spark.read.format("csv")\
+  .option("header", "true")\
+  .option("sep", ",")\
+  .load("../data/results.csv")\
+  .join(driverFilter, ["driverId"], "leftanti")\
+  .join(races, "raceId")\
+  .withColumn("position", F.col("position").cast(T.IntegerType()))\
+  .withColumn("grid", F.col("grid").cast(T.IntegerType()))\
+  .na.fill({"position" : 100, "grid" : 100})\
+\end{lstlisting}
+
+Habiendo terminado con la preparación del DataFrame, podemos calcular la siguiente métrica: el porcentaje de carreras en las que un piloto ha acabado mejor que su compañero. Para ello lo primero será averiguar cuándo un piloto ha acabado por delante de su compañero de equipo. Esto lo conseguiremos sacando el mínimo valor de la columna \texttt{position} particionando sobre fabricante y carrera y comparando con la posición en la que ha terminado cada piloto.
+
+\begin{lstlisting}
+.withColumn("topPos", F.min(F.col("position")).over(raceConstructorWindow))\
+.withColumn("constructorBestPos", F.when(F.col("topPos") == F.col("position"), 1).otherwise(0))\
+\end{lstlisting}
+
+Tras esto podemos calcular el porcentaje de carreras en las que cada piloto ha estado por delante de su compañero dividiendo la suma de la última columna entre el conteo de carreras en la temporada del piloto.
+
+\begin{lstlisting}
+.withColumn("topPosPerc", F.sum(F.col("constructorBestPos")).over(driverSeasonWindow) / 
+F.count(F.col("raceId")).over(driverSeasonWindow) * 100)\
+\end{lstlisting}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
