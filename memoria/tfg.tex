@@ -1651,7 +1651,7 @@ teammateComparison = spark.read.format("csv")\
   .na.fill({"position" : 100, "grid" : 100})\
 \end{lstlisting}
 
-Habiendo terminado con la preparación del DataFrame, podemos calcular la siguiente métrica: el porcentaje de carreras en las que un piloto ha acabado mejor que su compañero. Para ello lo primero será averiguar cuándo un piloto ha acabado por delante de su compañero de equipo. Esto lo conseguiremos sacando el mínimo valor de la columna \texttt{position} particionando sobre fabricante y carrera y comparando con la posición en la que ha terminado cada piloto.
+Habiendo terminado con la preparación del DataFrame, podemos calcular las siguientes métricas: el porcentaje de carreras en las que un piloto ha acabado mejor que su compañero en la parrilla de salida y al acabar y el porcentaje total de temporadas en las que ha quedado mejor que el compañero de equipo igual, tanto en la parrilla de salida como al acabar. Para ello lo primero será averiguar cuándo un piloto ha acabado por delante de su compañero de equipo en una carrera. Esto lo conseguiremos sacando el mínimo valor de la columna \texttt{position} particionando sobre fabricante y carrera y comparando con la posición en la que ha terminado cada piloto.
 
 \begin{lstlisting}
 .withColumn("topPos", F.min(F.col("position")).over(raceConstructorWindow))\
@@ -1665,37 +1665,160 @@ Tras esto podemos calcular el porcentaje de carreras en las que cada piloto ha e
 F.count(F.col("raceId")).over(driverSeasonWindow) * 100)\
 \end{lstlisting}
 
+El siguiente paso será cuantificar este dominio calculando el porcentaje de carreras de la temporada en la que ha quedado por delante del resto del equipo. Para ello primero tenemos que averiguar carrera a carrera dentro del equipo quien tiene el \texttt{topPosPerc} más alto, y \quotes{marcar} cuando nuestro \texttt{topPosPerc} sea el más alto para luego ver el porcentaje de temporadas que ha dominado.
 
+\begin{lstlisting}
+.withColumn("constTopPosPerc", F.max(F.col("topPosPerc")).over(seasonConstructorWindow))\
+.withColumn("driverDomConstPos", F.when(F.col("constTopPosPerc") == F.col("topPosPerc"), 1).otherwise(0))\
+\end{lstlisting}
 
+Con una serie de operaciones muy similares, podemos calcular lo mismo pero en lugar de tener en cuenta la posición en la que termina la carrera, la posición en la parrilla de salida:
 
+\begin{lstlisting}
+.withColumn("topGrid", F.min(F.col("grid")).over(raceConstructorWindow))\
+.withColumn("constructorBestGridPos", F.when(F.col("topGrid") == F.col("grid"), 1).otherwise(0))\
+.withColumn("topGridPerc", F.sum(F.col("constructorBestGridPos")).over(driverSeasonWindow) / 
+F.count(F.col("raceId")).over(driverSeasonWindow) * 100)\
+.withColumn("constTopGridPerc", F.max(F.col("topGridPerc")).over(seasonConstructorWindow))\
+.withColumn("driverDomConstGrid", F.when(F.col("constTopGridPerc") == F.col("topGridPerc"), 1).otherwise(0))\
+\end{lstlisting}
 
+Como queremos quedarnos con una entrada por piloto y temporada, aplicamos un \texttt{dropDuplicates} a las columnas pertinentes.
 
+\begin{lstlisting}
+.dropDuplicates(["driverId", "year"])\	
+\end{lstlisting}
 
+Para calcular las métricas finales, haremos la media de las columnas \texttt{avgTopDom} y \texttt{avgDom}. La media de la primera columna nos dará el porcentaje de veces que ha quedado por delante de un compañero a lo largo de la carrera, tanto para la posición de salida como la de finalizado y la media de la segunda nos dará el porcentaje de temporadas en las que ha dominado a su compañero de equipo.
 
+\begin{lstlisting}
+.withColumn("avgTopPosPerc", F.avg(F.col("topPosPerc")).over(driverWindow))\
+.withColumn("avgTopGridPerc", F.avg(F.col("topGridPerc")).over(driverWindow))\
+.withColumn("avgPosDom", F.avg(F.col("driverDomConstPos")).over(driverWindow))\
+.withColumn("avgGridDom", F.avg(F.col("driverDomConstGrid")).over(driverWindow))\
+\end{lstlisting}
 
+Por último, como solo queremos una entrada por piloto, hacemos otro \texttt{dropDuplicates} y seleccionamos las columnas que queremos que queden en el DataFrame.
 
+\begin{lstlisting}
+.dropDuplicates(["driverId"])\
+.select("driverId", "avgTopPosPerc", "avgTopGridPerc", "avgPosDom", "avgGridDom")
+\end{lstlisting}
 
+Sin embargo, estas no son las únicas métricas que queremos calcular. Estamos interesados también en las siguientes:
 
+\begin{compactitem}
+	\item Posibilidad de que empiece la carrera en primera fila.
+	\item Posición media de salida.
+	\item Posición media al acabar la carrera.
+	\item Total de poles.
+	\item Porcentaje de poles relativo al número de carreras en las que se ha participado.
+	\item Porcentaje de temporadas en las que ha conseguido una pole.
+	\item Porcentaje de temporadas en las que ha ganado una carrera.
+	\item Porcentaje de podios relativo al número de carreras en las que se ha participado.
+\end{compactitem}
 
+Primero, como viene siendo habitual, preparamos el DataFrame para los cálculos. Cargamos la tabla \texttt{results} e interseccionamos con los DataFrames \texttt{driverDomination} según las columnas \texttt{driverId} y \texttt{year} y \texttt{teammateComparison} según la columna \texttt{driverId}. En ambos casos hacemos una intersección de tipo left. También interseccionamos con \texttt{races} para añadir información sobre la temporada en la que se ha disputado cada carrera.
 
+Por último hacemos la intersección con \texttt{driverFilter} tomando como referencia la columna \texttt{driverId}. Sin embargo, esta intersección se hará de tipo \quotes{leftanti}. Esto quiere decir que el DataFrame resultante contendrá todos los elementos que no estén en el que queremos interseccionar por la derecha.
 
+Esta es una manera eficiente de hacer un filtro en Spark. Otra manera sería hacer un \texttt{collect()} de \texttt{driverFilter} y obtenerlo como una lista. Llegados a este punto, en lugar de hacer una intersección \quotes{leftanti}, haríamos algo como:
 
+\begin{lstlisting}
+.where(~F.col('driverId').isin(lista))
+\end{lstlisting}
 
+Sin embargo, hacer un \texttt{collect()} en Spark resulta muy costoso y por ello se ha optado por la primera opción.
 
+De nuevo tendremos que convertir a tipo entero las columnas \texttt{grid} y \texttt{position}. El código para preparar este DataFrame es el siguiente:
 
+\begin{lstlisting}
+results = spark.read.format("csv")\
+  .option("header", "true")\
+  .option("sep", ",")\
+  .load("../data/results.csv")\
+  .join(driverFilter, ["driverId"], "leftanti")\
+  .join(races, "raceId")\
+  .join(driverDomination, ["driverId", "year"], "left")\
+  .join(teammateComparison, ["driverId"], "left")\
+  .withColumn("grid", F.col("grid").cast(T.IntegerType()))\
+  .withColumn("position", F.col("position").cast(T.IntegerType()))\
+\end{lstlisting}
 
+Lo primero que podemos calcular es el porcentaje de salidas en primera fila. Para ello primero tendremos que definir una columna que valga \texttt{1} cuando estemos en primera o segunda posición y \texttt{0} en otro caso. Para calcular la métrica podemos hacer sumar la columna recién definida particionando por piloto.
 
+\begin{lstlisting}
+.withColumn("firstRowStart", F.when((F.col("grid") == 1)  | (F.col("grid") == 2), 1).otherwise(0))\
+.withColumn("firstRowChance", F.round(F.sum(F.col("firstRowStart")).over(driverWindow) / F.count(F.col("firstRowStart")).over(driverWindow), 4) * 100)\
+\end{lstlisting}
 
+Lo siguiente que podemos calcular es la posición de salida y la posición al acabar media. Esto se puede hacer con las siguientes líneas de código:
 
+\begin{lstlisting}
+.withColumn("avgGridStart", F.round(F.avg(F.col("grid")).over(driverWindow), 2))\
+.withColumn("avgFinish", F.round(F.avg(F.col("position")).over(driverWindow), 2))\
+\end{lstlisting}
 
+También podemos calcular el total de poles, el porcentaje de poles respecto a todas las carreras disputadas y el porcentaje de temporadas en las que ha conseguido una pole.
 
+Para ello primero tenemos que diferenciar las poles, esto es, cuando el piloto sale primero al iniciar la carrera. Después podemos sumar todas las poles de forma global para la primera métrica y particionando por temporada también para continuar calculando las siguientes.
 
+El porcentaje de poles respecto al número de carreras podemos obtenerlo dividiendo el total con el conteo de carreras en las que ha participado el piloto. Para calcular el porcentaje de temporadas con pole, primero debemos de nuevo definir en qué temporadas ha conseguido alguna y hacer una cuenta similar a la anterior. Sumando todas las temporadas en las que se ha conseguido y dividiendo entre el total de campeonatos disputados. El código es el siguiente:
 
+\begin{lstlisting}
+.withColumn("pole", F.when(F.col("grid") == 1, 1).otherwise(0))\
+.withColumn("totalPolePositions", F.sum(F.col("pole")).over(driverWindow))\
+.withColumn("polesPerSeason", F.sum(F.col("pole")).over(driverSeasonWindow))\
+.withColumn("poleChance", F.round(F.col("totalPolePositions") / F.count(F.col("raceId")).over(driverWindow) * 100, 2))\
+.withColumn("hasPoleThisSeason", F.when(F.col("polesPerSeason") > 0, 1).otherwise(0))\
+.withColumn("percSeasonsWithPole", F.round(F.sum(F.col("hasPoleThisSeason")).over(driverWindow) / F.count(F.col("year")).over(driverWindow), 4) * 100)\
+\end{lstlisting}
 
+Querríamos también hallar estas mismas métricas, pero para victorias. Esto resulta muy similar, salvo que en lugar de usar la columna \texttt{grid}, se usa la columna \texttt{position}:
 
+\begin{lstlisting}
+ .withColumn("win", F.when(F.col("position") == 1, 1).otherwise(0))\
+.withColumn("totalVictories", F.sum(F.col("win")).over(driverWindow))\
+.withColumn("victoryChance", F.round(F.col("totalVictories") / F.count(F.col("win")).over(driverWindow), 4) * 100)\
+.withColumn("winsPerSeason", F.sum(F.col("win")).over(driverSeasonWindow))\
+.withColumn("hasWonThisSeason", F.when(F.col("winsPerSeason") > 0, 1).otherwise(0))\
+.withColumn("percSeasonsWithWins", F.round(F.sum(F.col("hasWonThisSeason")).over(driverWindow) / F.count(F.col("year")).over(driverWindow), 4) * 100)\
+\end{lstlisting}
 
+También nos interesaría calcular el porcentaje de carreras en las que se ha obtenido un podio. Para ello primero definimos cuándo se ha conseguido un podio, es decir, cuando se ha terminado primero, segundo o tercero. Después y de forma muy parecida a los cálculos anteriores, podemos hacer una suma de todos los podios y dividir por el número de carreras disputadas.
 
+\begin{lstlisting}
+.withColumn("podium", F.when((F.col("position") == 1) | (F.col("position") == 2) | (F.col("position") == 3), 1).otherwise(0))\
+.withColumn("podiumChance", F.round(F.sum(F.col("podium")).over(driverWindow) / F.count(F.col("podium")).over(driverWindow), 4) * 100)\
+\end{lstlisting}
 
+Por último, eliminamos la duplicidad según la columna \texttt{driverId} y seleccionamos las columnas que queremos que continúen.
+
+\begin{lstlisting}
+.dropDuplicates(["driverId"])\
+.select("driverId", "firstRowChance", "avgGridStart", "avgFinish", 
+"totalPolePositions", "poleChance", "percSeasonsWithPole", 
+"percSeasonsWithWins", "podiumChance", "dominationPerc", 
+"avgTopPosPerc", "avgTopGridPerc", "avgPosDom", "avgGridDom")
+\end{lstlisting}
+
+Para finalizar esta query, crearemos una clasificación para cada métrica que hemos calculado. Algunas de menor a mayor y otras al contrario, y aplicaremos la UDF que programamos en la query anterior para hacer la media estas clasificaciones.
+
+\begin{lstlisting}
+results\
+  .withColumn("rankFRC", F.rank().over(Window.orderBy(F.col("firstRowChance").desc())))\
+    ...
+  .withColumn("rankGridDom", F.rank().over(Window.orderBy(F.col("avgGridDom").desc())))\
+  .withColumn("stats", averageRank(
+    F.array(F.col("rankFRC"),
+    F.col("rankAGS"),
+      ...
+    F.col("rankGridDom")
+    )
+  ))\
+\end{lstlisting}
+
+Además, creamos una columna que clasifique la columna \texttt{stats} de menor a mayor y ordenamos el DataFrame y ya por último completamos la información del piloto, en este caso nombre y apellido, interseccionando con el DataFrame \texttt{driverInfo}.
 
 
 
