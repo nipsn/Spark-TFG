@@ -1748,6 +1748,22 @@ Además, creamos una columna que clasifique la columna \texttt{stats} de menor a
 
 En esta sección me centraré en describir el proceso de migración de una query escrita en Scala Spark a una query en PySpark. Para ello utilizaré como ejemplo la query descrita en la sección \ref{analisistemporada}.
 
+Los cambios en los que nos vamos a centrar van a ser los siguientes:
+
+\begin{compactlist}
+	\item Imports.
+	\item Añadir tipos de variable.
+	\item Indentado inesperado.
+	\item Operadores.
+	\item Ventanas.
+	\item Separaciones y comentarios.
+	\item Tipos de Spark.
+	\item Listas y mapas.
+\end{compactlist}
+
+
+\textbf{Imports}
+
 Para migrar una query, lo primero es traducir los \texttt{imports}. En este caso vamos a necesitar las funciones de Spark SQL, los tipos propios de Spark y las ventanas. En Python, al ser un lenguaje muy explícito, es recomendable importar las funciones que vayamos a necesitar con la sintaxis \texttt{import {paquete} as {nombre}} si vamos a necesitar el paquete completo. En nuestro caso, esto es absolutamente necesario, ya que si importásemos la función \texttt{abs} del paquete \texttt{pyspark.sql.functions}, podría confundirse con la función \texttt{abs} que el lenguaje trae. Como este caso hay varios, entre ellos \texttt{max}, \texttt{min} o \texttt{avg}.
 
 Por tanto, nuestros \texttt{imports} tendrán que tener la siguiente forma:
@@ -1759,6 +1775,8 @@ from pyspark.sql import Window
 \end{lstlisting}
 
 Estamos ignorando que necesitamos importar también \texttt{SparkSession} para crear la propia sesión de Spark.
+
+\textbf{Tipos de variable}
 
 Una vez hemos importado todo lo que necesitamos y tenemos creada la \texttt{SparkSession}, que se hace de manera muy parecida a la de Scala, podemos pasar a migrar la query para obtener nuestro primer DataFrame.
 
@@ -1776,6 +1794,8 @@ val races = spark.read.format("csv")
 Lo primero que veremos al intentar ejecutar este trozo de código es que en Python no necesitamos indicar el tipo
 de variable, como es el caso de Scala u otros lenguajes como Java o C. En lugar de eso, directamente asignamos un valor al nombre de variable que deseemos. Por ello, nos tendremos que deshacer de todos \texttt{val} y \texttt{var} que haya en nuestro código. En caso de tener funciones declaradas como \texttt{var} en nuestro código, debemos pasar su definición para que use \texttt{def} en su lugar.
 
+\textbf{Indentado inesperado}
+
 Lo siguiente que nos dirá el intérprete de Python al intentar ejecutar el código habiendo eliminado lo que acabamos de comentar es que ha habido un indentado inesperado. Python en concreto es un lenguaje estricto con las indentaciones, ya que indican al programa el scope del código indentado. Para solucionar este error, necesitamos incorporar al final de cada línea el carácter \texttt{$\backslash$}, lo cual hace que el intérprete vea un trozo de código de varias líneas como una sola. Este carácter tendrá que estar presente en todas las líneas menos la última.
 
 Con estos cambios incorporados, nuestra query tiene la siguiente pinta:
@@ -1788,6 +1808,8 @@ races = spark.read.format("csv")\
 	.select("raceId", "year")\
 	.where(col("year") === 2021)
 \end{lstlisting}
+
+\textbf{Operadores}
 
 Si ejecutamos esto, nos daremos cuenta de que el operador \texttt{===} no es válido. Para realizar comparaciones de este tipo, tenemos que usar el operador \texttt{==}. Este error nos puede adelantar que tendremos que revisar todos los operadores que tengamos en el código. Otro tipo de operadores que cambian son los lógicos. Por ejemplo, las operaciones \texttt{\&\&} (and) y \texttt{||} (or) se denotan con \texttt{\&} y \texttt{|} respectivamente.
 
@@ -1804,7 +1826,11 @@ races = spark.read.format("csv")\
 	.where(F.col("year") == 2021)
 \end{lstlisting}
 
+\textbf{Ventanas}
+
 El siguiente paso sería migrar las ventanas, lo cual no nos llevará ningún problema ya que al quitar el \texttt{var} o \texttt{val} que precede al nombre de la ventana tendríamos todo el trabajo hecho.
+
+\textbf{Separaciones y comentarios}
 
 Es posible que nos encontremos con queries como la siguiente, que añaden líneas vacías posiblemente como forma de ordenar el código y separar las distintas partes que lo componen, o incluso añadir comentarios entre líneas para complementar el código:
 
@@ -1840,6 +1866,8 @@ driverStats = driverStats\
 \end{lstlisting}
 
 
+\textbf{Tipos de Spark}
+
 Otro detalle que tenemos que comentar son los tipos propios de Spark. Los tipos en sí no difieren de una librería a otra, pero sí cómo se usan en el código. En Scala nos encontramos una versión más sencilla y menos \quotes{abultada} o explícita, mientras que en Python tenemos que añadir el prefijo \texttt{T.} y los paréntesis tras el propio tipo. En este caso, el prefijo no es necesario, ya que por defecto Python no tiene ningún tipo o función que comparta nombre con los tipos de Spark y por ende podríamos importar todo el contenido del paquete \texttt{types}, pero se considera buena práctica importar como lo hemos hecho para separar los \quotes{namespaces}. 
 
 Por otro lado, es muy probable que nos encontremos con operaciones como la siguiente:
@@ -1858,6 +1886,8 @@ val results = spark.read.format("csv")
 	.join(driverStats, Seq("raceId", "driverId"), "left")
 	.join(drivers, "driverId")
 \end{lstlisting}
+
+\textbf{Listas y mapas}
 
 Donde podemos ver que se utilizan listas, en este caso para indicar las columnas sobre las que hacer la intersección. En este caso, la traducción resulta sencilla. Tendríamos que coger los elementos de la lista y envolverlos entre corchetes (\texttt{[]}), eliminando en este caso el \texttt{Seq} y sustituyendo los paréntesis por ellos. Es posible que veamos otros tipos como \texttt{List}, pero la idea se mantiene.
 
