@@ -45,7 +45,7 @@
 \usepackage{fancyhdr}
 \usepackage{rotating}
 \usepackage{multirow}
-
+\usepackage{fancyvrb}
 
 % Otros paquetes
 
@@ -250,7 +250,7 @@ upquote=true,
   belowskip=3mm,
   showstringspaces=false,
   columns=flexible,
-  basicstyle={\small\ttfamily},
+  basicstyle={\scriptsize\ttfamily},
   numbers=none,
   numberstyle=\tiny\color{gray},
   keywordstyle=\color{blue},
@@ -260,8 +260,14 @@ upquote=true,
   breaklines=true,
   breakatwhitespace=true
   tabsize=3
+  basewidth=0.55em
 }
 
+\lstdefinelanguage{regex}{
+	morekeywords={[, ], *, +, \^, ?},
+	otherkeywords={$\backslash$},
+	sensitive=true
+}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% Comandos definidos por el autor 
 
@@ -1003,8 +1009,6 @@ Esta funcionalidad nos la proporcionan las UDFs (User-Defined Functions). La doc
 En nuestro caso vamos a tener dos funciones de este estilo: una para convertir de ese formato a milisegundos y otra que actúe de forma inversa. El código es el siguiente:
 
 
-\newpage
-
 \begin{lstlisting}
   val lapTimeToMs = (time: String) => {
     val regex = """([0-9]|[0-9][0-9]):([0-9][0-9])\.([0-9][0-9][0-9])""".r
@@ -1037,7 +1041,6 @@ De forma inversa, tenemos otra función llamada \texttt{msToLapTime} que, dado u
 
 Tras esto hay que conseguir la UDF y registrarla, proceso que resulta sencillo con las siguientes instrucciones:
 
-\newpage
 
 \begin{lstlisting}
   val lapTimeToMsUDF = udf(lapTimeToMs)
@@ -1133,28 +1136,7 @@ Al final, el código para obtener este DataFrame final quedaría tal que:
 \newpage
 
 
-\subsection{Dominio de fabricantes en la década de los 90}
-
-Con esta query se pretende hallar qué fabricante ha sido el más dominante en la década de los 90. En concreto intentaremos hallar el número de mundiales ganados y el número de carreras ganadas.
-
-Se usarán las siguientes fuentes de datos:
-\begin{compactitem}
-  \item \texttt{races.csv}
-  \item \texttt{constructor$\_$standings.csv}
-  \item \texttt{constructors.csv}
-\end{compactitem}
-
-Al igual que en la query anterior, si queremos fijar nuestra atención en un periodo de tiempo, tenemos que hacerlo filtrando la columna \texttt{year} de la tabla \texttt{races.csv}. En este caso, necesitamos todas las carreras entre el año 1990 y el año 1999.
-
-Una vez obtenidas todas las carreras de la década, tenemos que obtener la última carrera de cada temporada. Esto es debido a que en \newline\texttt{constructor$\_$standings.csv} tenemos la clasificación resultante al final de cada carrera. Para ello, usaremos crearemos una ventana en la que particionaremos los datos por año y que usaremos con la función \texttt{max()} sobre la columna \texttt{round}, que nos indica el índice de la carrera, es decir, la primera carrera de la temporada tendrá \texttt{round === 1}, para crear una columna llamada \texttt{max} en la que guardaremos el índice de la última carrera de la temporada. Finalmente, filtraremos los datos para quedarnos con aquellos en los que la columna \texttt{round === max}.
-
-Tras esto último, unimos las tabla \texttt{constructor$\_$standings.csv} con la recién obtenida para quedarnos con los resultados en las últimas carreras y filtramos según la columna \texttt{position === 1} para quedarnos con los ganadores. Teniendo esto, podemos ver también que la columna \texttt{wins} nos proporciona el número de victorias de cada escudería en esa temporada, así que, creando una ventana en la que particionemos por fabricante podemos hallar tanto la suma de victorias como el conteo de apariciones de cada una. 
-
-Pasando ya a la presentación de los datos, se filtrarían los constructores duplicados y se ordenarían los datos según el total de campeonatos ganados primero y, en caso de empate, por número de victorias. Además, se hace un join con la tabla de constructores para obtener su nombre.
-
-Lo interesante de esta query es que se puede usar para cualquier periodo de tiempo. Podemos averiguar por ejemplo qué fabricante ha sido el más dominante en toda la historia de la competición y qué constructor ha dominado ciertos años concretos.
-
-\subsection{Análisis de temporada por piloto}
+\subsection{Análisis de temporada por piloto} \label{analisistemporada}
 
 Esta query consiste en obtener una serie de métricas de cada piloto en una determinada temporada. Para ello, se obtiene como parámetro la temporada en cuestión, que usaremos para filtrar.
 
@@ -1229,29 +1211,11 @@ Tras esto podemos obtener el porcentaje de vueltas que un piloto ha liderado div
 .withColumn("percLapsLed", round(col("lapsLed") / col("totalLaps"), 2))
 \end{lstlisting}
 
-Finalmente, eliminamos duplicados y presentamos el DataFrame como consideremos oportuno. En este caso, necesitaré los cuatro valores calculados, el identificador de piloto y el de carrera. Al final la query para esta tabla quedaría tal que:
+Finalmente, eliminamos duplicados y presentamos el DataFrame como consideremos oportuno. En este caso, necesitaré los cuatro valores calculados, el identificador de piloto y el de carrera.
 
 \begin{lstlisting}
-val driverStats = spark.read.format("csv")
-  .option("header", "true")
-  .option("sep", ",")
-  .load("../data/lap_times.csv")
-
-  .withColumn("position", col("position").cast(IntegerType)) 
-  .withColumn("lap", col("lap").cast(IntegerType)) 
-  .join(races, "raceId")
-
-  .withColumn("positionNextLap", lead(col("position"), 1).over(raceDriverLapWindow))
-  .withColumn("positionsGainedLap", when(col("positionNextLap") < col("position") , abs(col("position") - col("positionNextLap"))).otherwise(0))
-  .withColumn("positionsLostLap", when(col("positionNextLap") > col("position"), abs(col("position") - col("positionNextLap"))).otherwise(0))
-  .withColumn("positionsGained", sum(col("positionsGainedLap")).over(driverRaceWindow))
-  .withColumn("positionsLost", sum(col("positionsLostLap")).over(driverRaceWindow))
-  .withColumn("lapLeader", when(col("position") === 1, 1).otherwise(0))
-  .withColumn("lapsLed", sum(col("lapLeader")).over(driverWindow))
-  .withColumn("totalLaps", sum(col("lapLeader")).over(seasonWindow))
-  .withColumn("percLapsLed", round(col("lapsLed") / col("totalLaps"), 2))
-  .select("raceId", "driverId", "positionsGained", "positionsLost", "lapsLed", "percLapsLed")
-  .dropDuplicates()
+.select("raceId", "driverId", "positionsGained", "positionsLost", "lapsLed", "percLapsLed")
+.dropDuplicates()
 \end{lstlisting}
 
 El siguiente paso es obtener la tabla final, y para ello partiremos de la tabla \texttt{results}. De nuevo necesitaremos convertir a entero ciertas columnas. En este caso \texttt{position}, \texttt{grid} y \texttt{points}.
@@ -1330,47 +1294,6 @@ Tras esto solo quedaría eliminar entradas duplicadas y ordenar según la métri
 .na.fill(0)
 .dropDuplicates(Seq("code"))
 .sort(col("avgPositionsLost").desc)  
-\end{lstlisting}
-
-Al final, el código completo de la query queda tal que:
-
-\begin{lstlisting}
-val results = spark.read.format("csv")
-  .option("header", "true")
-  .option("sep", ",")
-  .load("../data/results.csv")
-
-  .withColumn("position", col("position").cast(IntegerType))    
-  .withColumn("grid", col("grid").cast(IntegerType))    
-  .withColumn("points", col("points").cast(IntegerType))
-
-  .join(races, "raceId")
-  .join(driverStats, Seq("raceId", "driverId"), "left")
-  .join(drivers, "driverId")
-
-  .withColumn("podium", when(col("position") === 1 || col("position") === 2 ||col("position") === 3, lit(1)).otherwise(lit(0)))
-  .withColumn("averagePoints", round(avg(col("points")).over(driverWindow), 2))
-  .withColumn("maxAvgPoints", max(col("averagePoints")).over(seasonWindow))
-
-  .select(
-    col("code"),
-    sum(col("points")).over(driverWindow).as("champPoints"),
-    col("averagePoints"),
-    round(col("averagePoints") / col("maxAvgPoints"),2).as("pointPercent"),
-    sum(col("podium")).over(driverWindow).as("totalPodiums"),
-    round(sum(col("podium")).over(driverWindow) / count(col("podium")).over(driverWindow), 2).as("podiumPercent"),
-    round(avg(col("position") - col("grid")).over(driverWindow), 2).as("positionDelta"),
-    round(avg(col("positionsLost")).over(driverWindow), 2).as("avgPositionsLost"),
-    round(avg(col("positionsGained")).over(driverWindow), 2).as("avgPositionsWon"),
-    sum(col("positionsLost")).over(driverWindow).as("totalPositionsLost"),
-    sum(col("positionsGained")).over(driverWindow).as("totalPositionsWon"),
-    col("lapsLed"),
-    col("percLapsLed")
-  )
-
-  .na.fill(0)
-  .dropDuplicates(Seq("code"))
-  .sort(col("avgPositionsLost").desc)
 \end{lstlisting}
 
 \section{Programación de queries en PySpark}
@@ -1821,8 +1744,365 @@ results\
 Además, creamos una columna que clasifique la columna \texttt{stats} de menor a mayor y ordenamos el DataFrame y ya por último completamos la información del piloto, en este caso nombre y apellido, interseccionando con el DataFrame \texttt{driverInfo}.
 
 
+\subsection{Migración de queries de Scala Spark a PySpark}
+
+En esta sección me centraré en describir el proceso de migración de una query escrita en Scala Spark a una query en PySpark. Para ello utilizaré como ejemplo la query descrita en la sección \ref{analisistemporada}.
+
+Para migrar una query, lo primero es traducir los \texttt{imports}. En este caso vamos a necesitar las funciones de Spark SQL, los tipos propios de Spark y las ventanas. En Python, al ser un lenguaje muy explícito, es recomendable importar las funciones que vayamos a necesitar con la sintaxis \texttt{import {paquete} as {nombre}} si vamos a necesitar el paquete completo. En nuestro caso, esto es absolutamente necesario, ya que si importásemos la función \texttt{abs} del paquete \texttt{pyspark.sql.functions}, podría confundirse con la función \texttt{abs} que el lenguaje trae. Como este caso hay varios, entre ellos \texttt{max}, \texttt{min} o \texttt{avg}.
+
+Por tanto, nuestros \texttt{imports} tendrán que tener la siguiente forma:
+
+\begin{lstlisting}
+from pyspark.sql import functions as F
+from pyspark.sql import types as T
+from pyspark.sql import Window
+\end{lstlisting}
+
+Estamos ignorando que necesitamos importar también \texttt{SparkSession} para crear la propia sesión de Spark.
+
+Una vez hemos importado todo lo que necesitamos y tenemos creada la \texttt{SparkSession}, que se hace de manera muy parecida a la de Scala, podemos pasar a migrar la query para obtener nuestro primer DataFrame.
+
+Partimos del siguiente código:
+
+\begin{lstlisting}
+val races = spark.read.format("csv")
+  .option("header", "true")
+	.option("sep", ",")
+	.load("../data/races.csv")
+	.select("raceId", "year")
+	.where(col("year") === 2021)
+\end{lstlisting}
+
+Lo primero que veremos al intentar ejecutar este trozo de código es que en Python no necesitamos indicar el tipo
+de variable, como es el caso de Scala u otros lenguajes como Java o C. En lugar de eso, directamente asignamos un valor al nombre de variable que deseemos. Por ello, nos tendremos que deshacer de todos \texttt{val} y \texttt{var} que haya en nuestro código. En caso de tener funciones declaradas como \texttt{var} en nuestro código, debemos pasar su definición para que use \texttt{def} en su lugar.
+
+Lo siguiente que nos dirá el intérprete de Python al intentar ejecutar el código habiendo eliminado lo que acabamos de comentar es que ha habido un indentado inesperado. Python en concreto es un lenguaje estricto con las indentaciones, ya que indican al programa el scope del código indentado. Para solucionar este error, necesitamos incorporar al final de cada línea el carácter \texttt{$\backslash$}, lo cual hace que el intérprete vea un trozo de código de varias líneas como una sola. Este carácter tendrá que estar presente en todas las líneas menos la última.
+
+Con estos cambios incorporados, nuestra query tiene la siguiente pinta:
+
+\begin{lstlisting}
+races = spark.read.format("csv")\
+	.option("header", "true")\
+	.option("sep", ",")\
+	.load("../data/races.csv")\
+	.select("raceId", "year")\
+	.where(col("year") === 2021)
+\end{lstlisting}
+
+Si ejecutamos esto, nos daremos cuenta de que el operador \texttt{===} no es válido. Para realizar comparaciones de este tipo, tenemos que usar el operador \texttt{==}. Este error nos puede adelantar que tendremos que revisar todos los operadores que tengamos en el código. Otro tipo de operadores que cambian son los lógicos. Por ejemplo, las operaciones \texttt{\&\&} (and) y \texttt{||} (or) se denotan con \texttt{\&} y \texttt{|} respectivamente.
+
+De nuevo, una vez hagamos el cambio en el operador de igualdad y ejecutemos, veremos que nos encontramos con otro error. Esta vez se trata de un error distinto. En este caso nos dice que la función \texttt{col} no está definida. Esto es porque necesitamos añadir el paquete del que proviene delante del nombre de la función. En este caso, como importamos las funciones con el nombre \texttt{F}, tendremos que cambiarlo por \texttt{F.}.
+
+Si añadimos el prefijo a la función \texttt{col}, veremos que el código ya ejecuta correctamente. Finalmente el código migrado quedaría tal que:
+
+\begin{lstlisting}
+races = spark.read.format("csv")\
+	.option("header", "true")\
+	.option("sep", ",")\
+	.load("../data/races.csv")\
+	.select("raceId", "year")\
+	.where(F.col("year") == 2021)
+\end{lstlisting}
+
+El siguiente paso sería migrar las ventanas, lo cual no nos llevará ningún problema ya que al quitar el \texttt{var} o \texttt{val} que precede al nombre de la ventana tendríamos todo el trabajo hecho.
+
+Es posible que nos encontremos con queries como la siguiente, que añaden líneas vacías posiblemente como forma de ordenar el código y separar las distintas partes que lo componen, o incluso añadir comentarios entre líneas para complementar el código:
+
+\begin{lstlisting}
+val driverStats = spark.read.format("csv")
+	.option("header", "true")
+	.option("sep", ",")
+	.load("../data/lap_times.csv")
+
+	.withColumn("position", col("position").cast(IntegerType)) 
+	.withColumn("lap", col("lap").cast(IntegerType)) 
+	// filtramos las carreras
+	.join(races, "raceId")
+\end{lstlisting}
+
+Esto en Python no es posible hacerlo por el mismo motivo por el que tenemos que añadir el carácter \texttt{$\backslash$} al final de cada línea: Internamente interpretará todo este código como una sola línea. Para solucionar esto tenemos dos opciones, ambas correctas.
+
+La primera sería deshacernos de los espacios y juntar todo el código, teniendo también que eliminar los comentarios. La segunda sería partir la query en varias partes como se muestra a continuación:
+
+\begin{lstlisting}
+driverStats = spark.read.format("csv")\
+	.option("header", "true")\
+	.option("sep", ",")\
+	.load("../data/lap_times.csv")
+	
+driverStats = driverStats\
+	.withColumn("position", F.col("position").cast(T.IntegerType())) 
+	.withColumn("lap", F.col("lap").cast(T.IntegerType())) 
+	
+// filtramos las carreras
+driverStats = driverStats\
+	.join(races, "raceId")
+\end{lstlisting}
 
 
+Otro detalle que tenemos que comentar son los tipos propios de Spark. Los tipos en sí no difieren de una librería a otra, pero sí cómo se usan en el código. En Scala nos encontramos una versión más sencilla y menos \quotes{abultada} o explícita, mientras que en Python tenemos que añadir el prefijo \texttt{T.} y los paréntesis tras el propio tipo. En este caso, el prefijo no es necesario, ya que por defecto Python no tiene ningún tipo o función que comparta nombre con los tipos de Spark y por ende podríamos importar todo el contenido del paquete \texttt{types}, pero se considera buena práctica importar como lo hemos hecho para separar los \quotes{namespaces}. 
+
+Por otro lado, es muy probable que nos encontremos con operaciones como la siguiente:
+
+\begin{lstlisting}
+val results = spark.read.format("csv")
+	.option("header", "true")
+	.option("sep", ",")
+	.load("../data/results.csv")
+
+	.withColumn("position", col("position").cast(IntegerType))    
+	.withColumn("grid", col("grid").cast(IntegerType))    
+	.withColumn("points", col("points").cast(IntegerType))
+
+	.join(races, "raceId")
+	.join(driverStats, Seq("raceId", "driverId"), "left")
+	.join(drivers, "driverId")
+\end{lstlisting}
+
+Donde podemos ver que se utilizan listas, en este caso para indicar las columnas sobre las que hacer la intersección. En este caso, la traducción resulta sencilla. Tendríamos que coger los elementos de la lista y envolverlos entre corchetes (\texttt{[]}), eliminando en este caso el \texttt{Seq} y sustituyendo los paréntesis por ellos. Es posible que veamos otros tipos como \texttt{List}, pero la idea se mantiene.
+
+Por otro lado esto nos puede surgir el tener que traducir un Mapa. En este caso usaremos los diccionarios de Python, en el que sustituiremos los caracteres \texttt{->} que separan la clave del valor por \texttt{:}. También tendremos que eliminar de nuevo el \texttt{Map} y cambiar los paréntesis que lo envuelven por llaves del estilo \texttt{{}}
+
+Con estos cambios mencionados podrían cubrirse la mayoría de queries sencillas que nos encontremos, pero existen detalles importantes a tener en cuenta si el código utiliza funciones más avanzadas.
+
+\subsection{Expresiones regulares para facilitar la migración}
+
+En esta sección me gustaría hablar de una herramienta que puede facilitar mucho la migración de queries de Scala Spark a PySpark. Estoy hablando de ciertas expresiones regulares que nos ahorrarían potencialmente una cantidad considerable de tiempo en el caso de que tuviéramos que migrar queries muy grandes. A pesar de que nos pueden facilitar la experiencia para labores repetitivas como añadir el prefijo \texttt{F.} a cada función de columna, hay ciertos aspectos que seguirán requiriendo intervención manual, como los que comentaremos más adelante.
+
+Se tratarán los siguientes casos:
+
+\begin{compactitem}
+	\item Sustituciones directas.
+	\item Estandarización de las invocaciones a \texttt{col}.
+	\item Añadir \texttt{F.} a las funciones de columna.
+	\item Corregir las invocaciones a los tipos de Spark.
+	\item Eliminación de \texttt{val} y \texttt{var}.
+	\item Adición del carácter \texttt{$\backslash$} al final de cada línea.
+	\item Traducción de listas, secuencias y arrays.
+	\item Traducción de Mapas.
+	\item Otros ajustes menores.
+\end{compactitem}
+
+
+\textbf{Sustituciones Directas}
+
+Podemos empezar hablando de sustituciones sencillas que no requieren del uso de expresiones regulares complejas. Un ejemplo de sustitución de este tipo serían los operadores lógicos \texttt{\&\&} y \texttt{||}. Simplemente podríamos sustituirlos por su variante de Python comentada anteriormente. Otros ejemplos incluyen:
+
+\begin{compactitem}
+	\item Comentarios de una sola línea: de \texttt{//} a \texttt{\#}.
+	\item Operadores de igualdad: \texttt{===} a \texttt{==} y \texttt{=!=} a \texttt{!=}.
+	\item Valores nulos: \texttt{null} a \texttt{None}.
+	\item Valores booleanos: \texttt{true} a \texttt{True} y \texttt{false} a \texttt{False}.
+	\item Descriptores de orden para ventanas: \texttt{desc} a \texttt{desc()} y \texttt{asc} a \texttt{asc()}
+	\item La función \texttt{isInCollection} pasa a \texttt{isin}
+\end{compactitem}
+
+
+\textbf{Estandarización de las invocaciones a \texttt{col}}
+
+Una vez hemos terminado con estas sustituciones sencillas, podemos empezar a aprovechar la potencia de las expresiones regulares. Una de las consecuencias de utilizar estas herramientas será que acabaremos con un código estandarizado. Por ejemplo, en Scala Spark es posible invocar una columna de las siguientes maneras si importamos los implícitos de Spark:
+
+\begin{lstlisting}
+import spark.implicits._
+	
+col("colName")
+$"colName"
+'colName
+\end{lstlisting}
+
+Mientras que en Python podemos hacerlo de las siguientes formas:
+
+\begin{lstlisting}
+import pyspark.sql.functions as F
+
+F.col("colName")
+dataframe.colName
+\end{lstlisting}
+
+Como para ambas API podemos usar la función \texttt{col}, entonces nos interesaría transformar las otras dos maneras de invocar columnas a esta. Para ello podemos usar las siguientes expresiones regulares:
+\begin{compactitem}
+	\item Con \texttt{\$(".+?(?=")")} detectamos el primer caso, y lo sustituimos por \texttt{col(\$1)}
+	\item Con \texttt{'(.+?(?=[)| |.|,]))} detectamos el segundo y sustituimos por \texttt{col("\$1")}
+\end{compactitem}
+
+
+\textbf{Añadir \texttt{F.} a las funciones de columna}
+
+Con esto tendríamos gran parte de las invocaciones a columnas estandarizadas. Nótese que no hemos añadido el prefijo \texttt{F.}, ya que esto lo haremos a continuación de forma estándar para todas las funciones.
+
+Para hacer esto debemos conseguir todos los nombres de todas las funciones del paquete \texttt{functions} y formar una expresión regular que las detecte. Esto lo podemos hacer de la siguiente manera:
+
+\begin{lstlisting}
+from pyspark.sql import functions
+
+regex = "(" + "|".join(dir(functions)[39:]) +  ")\("
+\end{lstlisting}
+
+La función \texttt{dir} lista los contenidos de un paquete en este caso, y necesitamos descartar los 39 primeros elementos ya que no se trata de funciones como tal. Entendido esto, esta expresión regular la podemos imprimir por pantalla y guardarla para aplicar cuando la necesitemos.
+
+En nuestro caso, lo que detecte esta expresión regular lo sustituiremos por \texttt{F.\$1(}.
+
+
+\textbf{Corregir las invocaciones a los tipos de Spark}
+
+Lo siguiente será añadir el prefijo \texttt{T.} y los paréntesis a los tipos de Spark. En esta ocasión no fui capaz de listarlos como en el caso anterior y se hizo a mano, pero la idea sigue siendo colocar un operador OR entre cada elemento posible, todo rodeado por paréntesis.
+
+Esta expresión regular luego la sustituiríamos por T.\$1().
+
+
+\textbf{Eliminación de \texttt{val} y \texttt{var}}
+
+Lo siguiente será eliminar los \texttt{var} y \texttt{val} de las declaraciones, lo cual podemos conseguir mediante la siguiente expresión regular:
+
+\texttt{(val|var)[ ]+?(?=[a-zA-Z])}
+
+Todo lo que detecte deberá ser sustituido por la cadena vacía, esencialmente eliminándolos. Cabe destacar que en el caso de que tengamos funciones definidas como \texttt{val}, se necesitará intervención manual como comentaremos más adelante.
+
+
+\textbf{Adición del carácter \texttt{$\backslash$} al final de cada línea}
+
+La siguiente tarea será añadir el carácter \texttt{$\backslash$} al final de cada línea de la query. Para esto utilizaremos dos expresiones regulares. La primera de ellas detectará como línea de query aquella que tenga un cierre de paréntesis y una nueva línea, y la segunda actuará cuando tengamos una asignación de un DataFrame a otro seguido de las operaciones pertinentes.
+
+Para ilustrar este caso, pongamos que tenemos la siguiente query, donde ya hemos aplicado las expresiones regulares anteriores:
+
+\begin{lstlisting}
+test = data
+	.withColumn(...)
+	.filter(...)
+\end{lstlisting}
+
+Si aplicamos la expresión regular \texttt{($\backslash$))($\backslash$n)} y sustituimos por  \texttt{\$1$\backslash$$\backslash$\$2}, la query quedaría tal que:
+
+\begin{lstlisting}
+test = data
+	.withColumn(...)\
+	.filter(...)\
+\end{lstlisting}
+
+Sin embargo, esto sigue lanzando un error, ya que también deberíamos añadir dicho carácter en la primera línea. Para ello detectamos cuando tengamos una asignación con \texttt{([a-zA-Z0-9\-\_]*) = ([a-zA-Z0-9\-\_]*)$\backslash$n}
+, podemos sustituir por \texttt{\$1 = \$2$\backslash$$\backslash$$\backslash$n}, de forma que la query ya quedaría como:
+
+\begin{lstlisting}[language=scala]
+test = data\
+	.withColumn(...)\
+	.filter(...)\
+\end{lstlisting}
+
+
+\textbf{Traducción de listas, secuencias y arrays}
+
+Lo siguiente que querríamos cambiar son las listas, secuencias y arrays por arrays de Python. Estas se usan por ejemplo en las intersecciones para denominar las columnas que queremos que coincidan, o para establecer filtros que luego usamos en \texttt{isInCollection}, o \texttt{isin} en PySpark. 
+
+Esta expresión regular es la más larga de todas, ya que debemos distinguir entre listas de \texttt{String} y listas de otro tipo de datos. Esto es así ya que el delimitador de fin de lista es el paréntesis cerrado, indicando que ya no va a haber ningún elemento más, pero es posible que en una lista de \texttt{String} uno de los elementos contenga este carácter.
+
+La expresión regular es la siguiente:
+
+\begin{Verbatim}[fontsize=\scriptsize,frame=single]
+((\bList\b)|(\bSeq\b)|(\bArray\b))\((([ |\n]*"[^\n"]*"([ |\n]*,[ |\n]*"[^\n"]*"[ |\n]*)*)|
+([ |\n]*[^\n"\)]*([ |\n]*,[ |\n]*"[^\n"]*"[ |\n]*)*))\)
+\end{Verbatim}
+
+Y la podemos sustituir por \texttt{[\$5]}
+
+
+\textbf{Traducción de Mapas}
+
+De forma similar, debemos cambiar los \texttt{Map} a diccionarios. Para ello buscamos detectar los contenidos del mapa como tales y envolverlos entre llaves. Esto lo podemos hacer con la siguiente expresión:
+
+\begin{lstlisting}
+\bMap\b\((([ |\n]*[^\n]*,[ |\n]*)*[^\n\.]*)\)
+\end{lstlisting}
+
+Y lo que detecte lo sustituimos por \texttt{$\lbrace$\$1$\rbrace$}.
+
+Después sustituimos los caracteres \texttt{->} por \texttt{:} y, por último, tenemos que tener en cuenta que hay algunos mapas que tienen valores por defecto en caso de que no se encuentre la clave. Estos se distinguen añadiendo \texttt{.withDefaultValue()} y pasando como argumento el valor por defecto. En Python sin embargo, este tipo de diccionarios se crean de forma distinta, usando \texttt{defaultdict}.
+
+Para cambiar un valor por defecto por otro tendremos que detectar cuál es ese valor y hacer el cambio a la manera de implementarlo con Python. Primero detectamos este caso por defecto con:
+
+\begin{lstlisting}
+({[^}]*}).withDefaultValue\((.*)\)
+\end{lstlisting}
+
+Y sustituimos lo que detecte por:
+
+\begin{lstlisting}
+defaultdict(lambda:$2,$1)
+\end{lstlisting}
+
+
+\textbf{Otros ajustes menores}
+
+El siguiente paso es añadir un paréntesis después de \texttt{isNull} e \texttt{isNotNull}, lo cual haremos primero detectando estos casos con:
+
+\begin{lstlisting}
+((\bisNull\b)|(\bisNotNull\b))([\\)| |,|\n])
+\end{lstlisting}
+
+Y que sustituiremos por \texttt{\$1()\$4}
+
+A la hora de hacer una intersección, es común encontrar una expresión como:
+
+\begin{lstlisting}
+col("colName") === otherDf("otherCol")
+\end{lstlisting}
+
+La forma para denominar una columna de un DataFrame que se observa en la segunda parte de la comparación no está permitida en Python, y por tanto debemos cambiarla a otra como:
+
+\texttt{otherDf.otherCol}
+
+Como este tipo de denominación se suele dar en intersecciones a la hora de establecer la comparación, podemos usar una expresión regular como la siguiente para detectarlos:
+
+\begin{lstlisting}
+(.join\(.*== )((.*)\("(.*)"\)),
+\end{lstlisting}
+
+Que sustituiremos por \texttt{\$1\$3.\$4,}.
+
+Con este conjunto de sustituciones directas y expresiones regulares ya tenemos cubierta una gran parte del código que nos podamos encontrar a la hora de crear queries básicas. Cierto es que dentro de todas las opciones que nos ofrece Spark se cubren casos muy limitados, pero si se avanzase en el tema de las expresiones regulares quizá fuese posible cubrir la gran mayoría del código que se puede desarrollar en Scala Spark. A continuación se muestran algunas de las limitaciones nos encontraríamos, es decir, código que se puede hacer en Scala Spark que no se puede traducir directamente a PySpark, sino que requeriría una parte de interpretación, análisis de la funcionalidad y replicado de la misma.
+
+
+\subsubsection{Funcionalidad con implementaciones distintas}
+
+En Spark existe una función llamada \texttt{lit} que dado un valor de entrada de cualquier tipo nos devuelve una cuyas entradas contienen únicamente ese valor. En Scala Spark también existe una función llamada \texttt{typedLit}, que permite hacer lo mismo para tipos complejos como listas o mapas. Resultan útiles en el caso de que queramos aplicar un mapa a una columna, ya que le pasaríamos una columna de entrada como parámetro y devolvería otra con todos los valores mapeados. 
+
+El problema a la hora de migrar código a PySpark es que esta función no existe, y para mapear una columna hay que hacerlo de una manera más enrevesada.
+
+Mientras que el código para Scala Spark se vería así:
+
+\begin{lstlisting}
+val mySparkMap = typedLit(Map(...))
+
+...
+.withColumn("mapeada", mySparkMap(col("input")))
+\end{lstlisting}
+
+El código para implementar la misma funcionalidad sin usar UDFs sería el siguiente:
+
+\begin{lstlisting}
+from pyspark.sql.functions import col, create_map, lit
+from itertools import chain
+
+myPythonDict = {...}
+
+mapping_expr = create_map([lit(x) for x in chain(*myPythonDict.items())])
+
+...
+.withColumn("value", mapping_expr.getItem(col("clave")))
+\end{lstlisting}
+
+Como se puede observar, hay que hacer algún paso extra, pero más importante que eso es que dependemos de otro paquete externo a Spark. Además, el uso del \texttt{mapping$\_$expr} cambia ligeramente entre las versiones 2 y 3 de Spark, y por lo tanto es otra cosa más que tener en cuenta a la hora de migrar una versión a otra.
+
+\subsubsection{Funciones concretas con declaraciones distintas}
+
+Se ha observado que algunas funciones de DataFrame que están declaradas de una manera en Scala Spark no lo están de la misma forma en PySpark. Un ejemplo de ello es la función \texttt{na.replace}, que en el caso de la API de Scala puede recibir como primer argumento un valor por el que serán sustituidos los nulos y como segundo argumento una lista de columnas a tener en cuenta.
+
+En la API de Python estos dos argumentos se invierten: primero recibimos las columnas a tener en cuenta y después el valor que sustituirá los nulos.
+
+Visto este caso podemos llegar a preguntarnos qué otras funciones siguen este patrón, es decir, que en una API tienen una declaración y en la otra siguen una distinta. Esto es una pregunta difícil de responder, ya que existen más de mil funciones aplicables a un DataFrame, y para comprobarlo tendríamos que dedicar mucho tiempo y esfuerzo, más aún si se hace manualmente.
+
+Además, también existe el caso de que tengamos funciones en una API que no existan en la otra, como es el caso de \texttt{replace}, que está en PySpark pero no en Scala Spark.
+
+Por estos motivo considero que crear una serie de expresiones regulares generalizadas para migrar código entre APIs, y que merecería un TFG de por sí.
 
 
 
@@ -1890,7 +2170,6 @@ Las citas del texto Autor \cite{giaquinta}, Autor \cite{fortune}, Autor \cite{fo
 
 \section{Texto de relleno}
 
-\lipsum[1-18]
 \blankpage
 
 
