@@ -1750,7 +1750,7 @@ En esta sección me centraré en describir el proceso de migración de una query
 
 Los cambios en los que nos vamos a centrar van a ser los siguientes:
 
-\begin{compactlist}
+\begin{compactitem}
 	\item Imports.
 	\item Añadir tipos de variable.
 	\item Indentado inesperado.
@@ -1759,7 +1759,7 @@ Los cambios en los que nos vamos a centrar van a ser los siguientes:
 	\item Separaciones y comentarios.
 	\item Tipos de Spark.
 	\item Listas y mapas.
-\end{compactlist}
+\end{compactitem}
 
 
 \textbf{Imports}
@@ -1860,7 +1860,7 @@ driverStats = driverStats\
 	.withColumn("position", F.col("position").cast(T.IntegerType())) 
 	.withColumn("lap", F.col("lap").cast(T.IntegerType())) 
 	
-// filtramos las carreras
+# filtramos las carreras
 driverStats = driverStats\
 	.join(races, "raceId")
 \end{lstlisting}
@@ -2134,8 +2134,56 @@ Además, también existe el caso de que tengamos funciones en una API que no exi
 
 Por estos motivo considero que crear una serie de expresiones regulares generalizadas para migrar código entre APIs, y que merecería un TFG de por sí.
 
+\subsubsection{Limitaciones de las expresiones regulares}
 
+Pese a que gran parte de la traducción o migración se puede hacer mediante expresiones regulares, hay ciertos aspectos en los que nos podemos encontrar ciertas limitaciones. Vamos a comentar dos ejemplos:
 
+\textbf{Separación de código por comentarios}
+
+Como se comentó anteriormente, es posible intercalar comentarios y líneas en blanco en Scala sin que de error. De hecho, puede ser útil a la hora de aclarar ciertos aspectos del código, pero en Python esto no está permitido. Todos los comentario tienen que ir antes o después de la query de Spark. Por ello, sería buena idea detectar estos casos en los que tenemos código con comentarios intercalados y separarlo como propusimos anteriormente:
+
+\begin{lstlisting}
+	driverStats = spark.read.format("csv")\
+		.option("header", "true")\
+		.option("sep", ",")\
+		.load("../data/lap_times.csv")
+	
+	# filtramos las carreras
+	driverStats = driverStats\
+		.join(races, "raceId")
+\end{lstlisting}
+
+Es decir, buscamos detectar comentarios y \quotes{partir} la query en dos. Para ello, necesitamos guardar el nombre del DataFrame, detectar el código hasta un comentario y el comentario en sí, y estos dos N veces. Esto lo podemos hacer con la siguiente expresión:
+
+\begin{lstlisting}
+([^ ]*) = ([^\#]*)([^\n]*)([^\#]*)
+\end{lstlisting}
+
+Sin embargo, esto solo cubre el código hasta el segundo comentario, sin incluir. Para cubrir más casos necesitaríamos o bien copiar varias veces los dos últimos grupos de captura o los dos primeros. La tercera opción sería cubrir uno de estas dos opciones que menciono con un \texttt{*}, para indicar que se repite N veces, pero entonces nos topamos con el siguiente problema: ¿Hasta dónde vamos a llegar? Tenemos que recordar que para sustituir necesitamos indicar los grupos de captura y el orden en el que los queremos. Si tenemos una query muy larga con muchos comentarios intercalados, nuestra expresión regular detectará cada uno de esos casos, y tendremos que hacer una expresión regular de sustitución individual al caso. En resumen: no se puede estandarizar, ya que podemos tener N comentarios intercalados.
+
+\textbf{Añadir paréntesis a condiciones}
+
+En Scala Spark es posible ejecutar el siguiente código sin problemas:
+
+\begin{lstlisting}
+dataframe
+	.when(col("a") === "foo" && col("b") =!= "bar", ...)
+\end{lstlisting}
+
+Sin embargo, en Python tenemos que separar cada condición con paréntesis, ya que el intérprete tratará de hacer la operación \quotes{bitwise} \texttt{\&} entre \texttt{"foo"} y \texttt{col("b")}, lo cual resultará en el siguiente código:
+
+\begin{lstlisting}
+dataframe
+	.when((col("a") === "foo") & (col("b") =!= "bar"), ...)
+\end{lstlisting}
+
+Al ser algo repetitivo, lo ideal sería poder diseñar una expresión regular que se encargase de ello, sin embargo el problema es el mismo que teníamos antes: ¿Cuántas condiciones individuales, separadas por operadores lógicos podemos tener en un \texttt{when}?. En principio podríamos intentar detectar condiciones con una expresión como:
+
+\begin{lstlisting}
+.when\([ |\n]*([^ ]*)([ |\n]*(\|\|)[ |\n]*([^ ]*))+?(?=,)
+\end{lstlisting}
+
+Pero de nuevo nos vemos limitados por el número de condiciones y, de nuevo, no podemos estandarizar una expresión regular que sustituya N parámetros.
 
 \section{Despliegue en AWS EMR}
 
@@ -2146,44 +2194,291 @@ Por estos motivo considero que crear una serie de expresiones regulares generali
 \label{sec:expVal}
 \newpage
 
-El primer paso para llevar a cabo esta query es cargar las fuentes de datos mencionadas. Para ello necesitamos haber creado un objeto \texttt{SparkSession}. En nuestro caso, esto se hace de la siguiente manera en el objeto \texttt{Main}:
+
+
+
+
+\section{Respuestas a las consultas}
+
+En este apartado se proporcionarán las respuestas obtenidas a las consultas descritas en los apartados anteriores. Veremos tanto respuestas obtenidas directamente con Spark en formato de texto como gráficas resultantes de la utilización de la librería Plotly.
+
+\subsection{Piloto más consistente en un periodo concreto de tiempo}
+
+Con esta query el objetivo era averiguar qué piloto ha sido el más consistente en un periodo de tiempo determinado. Como ya explicamos anteriormente, hemos definido \quotes{consistencia} como la diferencia entre la media de las vueltas rápidas del piloto y la media de todas las vueltas dadas en todos los grandes premios de ese periodo.
+
+En este caso, el resultado final de la query nos proporciona la respuesta que buscamos. Ordena según el parámetro de consistencia calculado de mayor a menor, y lo acompaña con el nombre y el apellido del piloto en cuestión.
+
+A continuación se puede ver el resultado de la query para la temporada 2012:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.4]{results/consistency/2012consistency.png}
+	\centering
+	\caption{Resultados de la query de consistencia aplicada al año 2012}
+	\label{fig:2012consistency}
+	\centering
+\end{figure}
+
+Como se puede observar, el piloto más consistente es Fernando Alonso, con una diferencia entre las vueltas rápidas y todas las vueltas de la temporada de 1.461 segundos. Podemos ver también que el campeón de ese año, Sebastian Vettel queda en la parte baja de esta clasificación, con una diferencia al primero de casi 6 segundos.
+
+\subsection{Análisis de temporada por piloto}
+
+En esta query se pretendía realizar un análisis sencillo de cierta temporada centrándonos en los pilotos. En concreto, buscábamos calcular las siguientes métricas:
+
+\begin{compactitem}
+	\item Puntos conseguidos en el campeonato.
+	\item Media de puntos.
+	\item Porcentaje de puntos respecto al piloto que más obtuvo.
+	\item Total de podios.
+	\item Porcentaje de carreras acabadas en podio.
+	\item Diferencia media entre la posición de salida y la obtenida al cruzar la meta.
+	\item Media de posiciones perdidas.
+	\item Media de posiciones ganadas.
+	\item Total de posiciones ganadas y perdidas.
+	\item Vueltas lideradas.
+	\item Porcentaje de vueltas lideradas.
+\end{compactitem}
+
+En este caso, como en el DataFrame final tenemos muchas métricas, no nos interesa mostrarlos en forma de texto como en el caso anterior, sino que para facilitar el análisis, sería más conveniente mostrar las métricas de forma gráfica.
+
+Para ello usaremos la librería de Scala llamada Plotly. Esta nos permite mostrar datos gráficamente con una configuración sencilla. Por ejemplo para mostrar por pantalla un gráfico de barras que represente la métrica \texttt{positionDelta} de cada piloto, haríamos lo siguiente:
 
 \begin{lstlisting}
-  val spark: SparkSession = SparkSession
-    .builder()
-    .master("local[*]")
-    .getOrCreate()
+val driverCodes = results
+	.sort("avgPosition")
+	.select("code")
+	.as[String]
+	.collect()
+	.toList
+	
+val positionDelta = results
+	.sort("positionDelta")
+	.select("positionDelta")
+	.as[Double]
+	.collect()
+	.toList
+	
+val data = Seq(
+	Bar(
+		driverCodes,  
+		positionDelta
+	)
+)
+	
+val layout = Layout( 
+	barmode = BarMode.Group
+)
+	
+plot(data, layout)
+\end{lstlisting}
+
+Como se puede observar, necesitamos recoger ambos ejes de la gráfica como listas para luego hacer la configuración de la gráfica en sí.
+
+Ese código resulta en una gráfica que mostrará en el eje horizontal los distintos pilotos y en el vertical el valor de su \texttt{positionDelta}.
+
+\begin{figure}[H]
+	\includegraphics[scale=0.4]{results/seasonanalysis/positionDelta.png}
+	\centering
+	\caption{Diferencia entre posición de salida y al final en la temporada 2021 por piloto}
+	\label{fig:positionDelta}
+	\centering
+\end{figure}
+
+Podemos llegar a la conclusión aparentemente evidente de que, cuanto más adelante clasifiques, más posiciones perderás, ya que hay menos gente para adelantar, mientras que si clasificas al final de la parrilla será más fácil hacer adelantamientos y más difícil ser adelantado ya que hay menos gente detrás.
+
+Otra métrica que resulta interesante es la media de posiciones perdidas, que será en parte análoga a la recién mostrada. Los resultados son los siguientes:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.4]{results/seasonanalysis/avgpositionslost2021.png}
+	\centering
+	\caption{Media de posiciones perdidas en la temporada 2021 por piloto}
+	\label{fig:avgPosLost2021}
+	\centering
+\end{figure}
+
+Podemos llegar a la conclusión de que, de media, pierden menos posiciones los que están más al frente y al final de la parrilla. También podemos llegar a la conclusión de que esta temporada fue una con mucha diferencia entre el grupo de constructores que competían por el título, el grupo medio y el grupo más bajo, ya que vemos que los pilotos que de media acabaron al frente y al final perdían de media menos posiciones que los pilotos del grupo medio. La posición media en la que terminaron los pilotos en esta temporada la podemos ver a continuación:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.4]{results/seasonanalysis/avgfinishpos2021.png}
+	\centering
+	\caption{Media de posiciones finales en la temporada 2021 por piloto}
+	\label{fig:avgFinPos2021}
+	\centering
+\end{figure}
+
+Podemos ver también un histograma con el porcentaje de podios relativo a las carreras obtenidos a lo largo de la temporada por los pilotos:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.4]{results/seasonanalysis/percentageofpodiums2021.png}
+	\centering
+	\caption{Histograma del porcentaje de podios en la temporada 2021 por piloto}
+	\label{fig:percPodiums2021}
+	\centering
+\end{figure}
+
+En este caso podemos ver una campana de Gauss invertida con tendencia a cero. De este gráfico podemos concluir también que la gran mayoría de pilotos no han obtenido ningún podio.
+
+Otra métrica interesante es el porcentaje de vueltas lideradas a lo largo de la temporada. Podemos obtener el siguiente gráfico:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.4]{results/seasonanalysis/percLapsLed2021.png}
+	\centering
+	\caption{Histograma del porcentaje de vueltas lideradas en la temporada 2021 por piloto}
+	\label{fig:percLapsLed2021}
+	\centering
+\end{figure}
+
+Podemos observar que la mitad de las vueltas han sido lideradas por Max Verstappen, mientras que su competidor por el título, Lewis Hamilton, lideró un 23\% de las vueltas. Aquí podemos ver de nuevo representada la diferencia de los dos contendientes al título respecto al resto de pilotos. Sin embargo, también podemos concluir que no es necesario liderar la mayoría de vueltas para competir por el título, ya que a pesar de lo que se muestra en esta métrica, tanto Max como Lewis llegaron igualados en puntos a la última carrera de la temporada. 
+
+Podemos achacar que Max no dominase la temporada en puntos a que quizá a Lewis le costase adelantarle, ya que, como vimos antes, de media terminó por detrás de su contrincante. Se podría explicar también si Max hubiese tenido más problemas de fiabilidad y, a pesar de haber liderado la carrera, hubiese tenido que abandonar más carreras que Lewis.
+
+\subsection{Mejor piloto de la historia}
+
+El objetivo de esta query era claro: intentar averiguar cuál ha sido el mejor piloto de la historia en base a varias métricas, que principalmente se dividen en dos grupos: comparativas con compañeros de equipo y estadísticas individuales. Por norma general se ha tratado de usar estadísticas relativas, es decir, en lugar de hacer un conteo de victorias, se ha hecho el conteo dividido por el número de carreras que en las que ha competido.
+
+Como métricas individuales del piloto tenemos:
+\begin{compactitem}
+	\item Posibilidad de empezar la carrera en primera fila (primero o segundo).
+	\item Media de posición en parrilla.
+	\item Media de posición final.
+	\item Posibilidad de hacer pole (clasificar primero).
+	\item Porcentaje de temporadas con pole.
+	\item Porcentaje de temporadas con al menos una victoria.
+	\item Posibilidad de terminar la carrera en el podio.
+	\item Total de poles.
+\end{compactitem}
+
+Cabe destacar que se ha tratado de encontrar métricas que sean imparciales. Por ejemplo, es probable que el piloto empiece su carrera en un equipo pequeño con un coche peor y que más adelante de el salto a otro más importante y con posibilidades de victorias y poles. Sin embargo, en mi opinión, un gran piloto debe poder llevar a cabo ciertos hitos en coches peores. Como ejemplos podríamos poner a Ayrton Senna en Mónaco 1984 o Fernando Alonso durante toda la temporada 2012. En ambos casos, la habilidad del piloto hizo posible conseguir resultados que de otra manera no hubiesen sido posibles. En resumen, si un piloto puede conseguir buenos resultados con coches no competitivos, entonces debe ser beneficiado.
+
+También se ha buscado cierta justicia hacia el piloto, es decir, probablemente no siempre el mejor quede o clasifique primero. A veces la diferencia entre el primero y el segundo es mínima, y pienso que esto no debe penalizar. Por ello se han usado métricas como la posibilidad de acabar en podio o la de empezar en primera fila.
+
+Como métricas que comparan pilotos del mismo equipo tenemos:
+\begin{compactitem}
+	\item Porcentaje de temporadas de su carrera en las que un piloto ha dominado a su compañero de equipo en puntos.
+	\item Porcentaje de carreras en las que un piloto ha terminado por delante de su compañero de equipo.
+	\item Porcentaje de carreras en las que un piloto ha clasificado por delante de su compañero de equipo.
+	\item Porcentaje de temporadas en las que un piloto ha superado a su compañero de equipo en clasificación.
+	\item Porcentaje de temporadas en las que un piloto ha superado a su compañero de equipo al acabar la carrera.
+\end{compactitem}
+
+Comparar pilotos de distintas épocas es complejo ya que el deporte en sí ha variado enormemente. Una de las mejores maneras de determinar si un piloto es bueno es comparar con su compañero de equipo en una determinada temporada, ya que en principio deberían tener el mismo coche. Si uno de ellos ha quedado siempre por delante del otro en clasificación, podemos asegurar que es más rápido.
+
+Para obtener los resultados de esta query en forma de clasificación sencilla en la que se ordene a los pilotos de mejor a peor debemos buscar una forma de \quotes{unir} todas estas métricas para formar una sola. En este caso esto lo hemos hecho obteniendo un ranking de cada métrica y haciendo la media de las posiciones que ocupa cada piloto en los rankings de las métricas. Por ejemplo, si un piloto está en la primera posición en una métrica y tercero en otra, se obtiene como valor total la media de ambos, en este caso 1,5.
+
+Si se aplica esto podemos obtener un resultado como el siguiente:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.3]{results/bestdrivers/bestdrivers.png}
+	\centering
+	\caption{Ranking de mejores pilotos de la historia}
+	\label{fig:bestDrivers}
+	\centering
+\end{figure}
+
+Para contrastar el resultado podemos ver que todos estos pilotos de una manera u otra han pasado a la historia. En concreto las 6 primeras entradas independientemente del orden que cada uno pueda dar son considerados por muchos los mejores de todos los tiempos.
+
+Además del resultado final podemos fijarnos también en los resultados de cada métrica, ya que en el DataFrame final se muestran tanto los resultados de cada una de ellas como el ranking de todas y el final. Por ilustrar esto, veamos el ranking de pilotos que han dominado a sus compañeros de equipo durante más temporadas a lo largo de su carrera:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.3]{results/bestdrivers/driverdomperc.png}
+	\centering
+	\caption{Ranking de pilotos más dominantes a lo largo de su carrera}
+	\label{fig:dominationPerc}
+	\centering
+\end{figure}
+
+Por clarificar el significado de esta métrica, \texttt{dominationPerc} nos indica el porcentaje de temporadas en las que un piloto ha dominado a su compañero de equipo.
+
+Podemos observar que el primero de ellos es Felipe Nasr que, a pesar de tener una corta carrera de dos años, consiguió dominar a todos sus compañeros de equipo. Más notable es el caso de Fernando Alonso, que a pesar de su larga carrera en el deporte ha conseguido dominar al 88.89\% de sus compañeros de equipo. En las posiciones más altas de esta clasificación podemos ver a otros pilotos notables como James Hunt, Emerson Fittipaldi, Charles Leclerc o Lewis Hamilton.
+
+Por poner varios ejemplos de métricas, podemos ver los pilotos con mejor posición de salida:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.3]{results/bestdrivers/avggridstart.png}
+	\centering
+	\caption{Ranking de pilotos según su posición media de salida}
+	\label{fig:avgGridStart}
+	\centering
+\end{figure}
+
+O los pilotos con mayor porcentaje de clasificar primeros respecto al número de carreras en las que ha competido:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.3]{results/bestdrivers/polechance.png}
+	\centering
+	\caption{Ranking de pilotos según su porcentaje de poles}
+	\label{fig:poleChance}
+	\centering
+\end{figure}
+
+\subsection{Mejor temporada}
+
+Con esta query se buscaba averiguar cuál ha sido la mejor temporada de la historia. Para ello se han tenido en cuenta dos factores: el número de adelantamientos, el número de pilotos distintos que han liderado la clasificación general y el número de pilotos que han ganado al menos una carrera.
+
+Como en la query anterior, debemos tener en cuenta varias métricas y se va a utilizar la misma metodología: hacer un ranking de cada una y hacer la media de todos los rankings. Tras aplicar esto, podemos ver que el resultado es el siguiente:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.4]{results/bestseason/bestseasonstats.png}
+	\centering
+	\caption{Ranking de temporadas}
+	\label{fig:bestseason}
+	\centering
+\end{figure}
+
+Sin embargo, esta query tiene una limitación grande: no tenemos datos de las posiciones de los pilotos vuelta a vuelta de antes de 1996. En este caso, una de las métricas quedaría como nulo para las temporadas anteriores a la mencionada, y al hacer la media de los rankings el resultado no sería válido. Aun así podríamos interpretar esta query como "la mejor temporada en la historia reciente del deporte".
+
+Esto nos afecta también a la hora de calcular el piloto más consistente de la temporada, ya que en ese caso no podemos obtener el tiempo por vuelta.
+
+\subsection{Fabricante más dominante en un periodo concreto de tiempo}
+
+En este caso se buscaba ver cuál ha sido el fabricante con más victorias en carreras y campeonatos de un periodo concreto de tiempo. Para ello se realizaron unos conteos sencillos y se presentó la información resultante de la siguiente manera:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.4]{results/constructordominance/90sconstructordominance.png}
+	\centering
+	\caption{Dominio de constructores en la década de los 90}
+	\label{fig:constdominance}
+	\centering
+\end{figure}
+
+
+\section{Comparativas de rendimiento}
+
+En este apartado se va a realizar una comparativa de rendimiento entre ambas API. Para ello se van a comparar distintas métricas obtenidas de la Spark UI. A grandes rasgos se van a comparar el número de Jobs, Stages y Tasks de cada proceso, así como su Task Time, el total leído de disco y el total leído y escrito en suffles.
+
+A la hora de hacer comparativas de este estilo, es importante igualar lo máximo posible las condiciones y el entorno del que dependen las mediciones. En nuestro caso, es importante que ambas sesiones de Spark cuenten con los mismos recursos y que el código sea lo más parecido posible, sin ninguna optimización de por medio. Por ejemplo, si para una de las API usamos una UDF, pero en la otra no es necesario porque existen mecanismos para evitarla, entonces debemos en ambos casos usar la UDF.
+
+Lo primero que necesitamosPara ello necesitamos haber creado un objeto \texttt{SparkSession}. En nuestro caso, esto se hace de la siguiente manera en el objeto \texttt{Main}:
+
+\begin{lstlisting}
+	val spark: SparkSession = SparkSession
+	.builder()
+	.master("local[*]")
+	.getOrCreate()
 \end{lstlisting}
 
 En nuestro caso con estas opciones es suficiente, ya que estamos dedicando todos los núcleos de nuestra máquina local para las tareas que vayamos a realizar. Sin embargo, existen otras opciones que podríamos añadir si fuese necesario, como un nombre para la aplicación con \texttt{.appName("Nombre")}. Un parámetro que puede resultar muy útil modificar es el de \texttt{spark.sql.broadcastTimeout}, que por defecto tiene un valor de 300 (segundos), si no tenemos muchos recursos y vemos que la aplicación para inesperadamente con una excepción que muestra el mensaje \quotes{Could not execute broadcast in 300 secs}. Para hacer esto, la creación de la \texttt{SparkSession} sería tal que:
 
 \begin{lstlisting}
-  val spark: SparkSession = SparkSession
-    .builder()
-    .master("local[*]")
-    .config("spark.sql.broadcastTimeout", "36000")
-    .getOrCreate()
+	val spark: SparkSession = SparkSession
+	.builder()
+	.master("local[*]")
+	.config("spark.sql.broadcastTimeout", "36000")
+	.getOrCreate()
 \end{lstlisting}
 
 De igual manera, si quisiéramos modificar algún parámetro distinto, lo haríamos añadiendo más modificaciones tal que: 
 
 \begin{lstlisting}
-  val spark: SparkSession = SparkSession
-    .builder()
-    .master("local[*]")
-    .config("spark.some.config.option", "some-value")
-    .config("spark.some.config.option", "some-value")
-       ...
-    .getOrCreate()
+	val spark: SparkSession = SparkSession
+	.builder()
+	.master("local[*]")
+	.config("spark.some.config.option", "some-value")
+	.config("spark.some.config.option", "some-value")
+	...
+	.getOrCreate()
 \end{lstlisting}
 
 Una vez tenemos el \texttt{SparkSession} creado correctamente, podemos usarlo para leer y escribir datos en distintos formatos, como CSV o Parquet. Además, nos permitirá crear DataFrames a partir distintos de tipos de datos, como Listas o Tuplas.
-
-
-
-\section{Análisis de requisitos no funcionales}
-
-
 
 
 

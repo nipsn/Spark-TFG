@@ -4,6 +4,16 @@
 /code/scala-queries/.idea/
 
 
+*.iml
+*.xml
+*.tar.gz
+*.zip
+*.log
+*.db
+*.json
+*.txt
+*.parquet
+*.csv
 .metals/metals.h2.db
 .metals/metals.lock.db
 .metals/metals.log
