@@ -1745,6 +1745,7 @@ Además, creamos una columna que clasifique la columna \texttt{stats} de menor a
 
 
 \subsection{Migración de queries de Scala Spark a PySpark}
+\label{sec:migracion}
 
 En esta sección me centraré en describir el proceso de migración de una query escrita en Scala Spark a una query en PySpark. Para ello utilizaré como ejemplo la query descrita en la sección \ref{analisistemporada}.
 
@@ -2443,44 +2444,242 @@ En este caso se buscaba ver cuál ha sido el fabricante con más victorias en ca
 
 \section{Comparativas de rendimiento}
 
-En este apartado se va a realizar una comparativa de rendimiento entre ambas API. Para ello se van a comparar distintas métricas obtenidas de la Spark UI. A grandes rasgos se van a comparar el número de Jobs, Stages y Tasks de cada proceso, así como su Task Time, el total leído de disco y el total leído y escrito en suffles.
+En este apartado se va a realizar una comparativa de rendimiento entre ambas API. Para ello se van a comparar distintas métricas obtenidas de la Spark UI. A grandes rasgos se van a comparar el número de Jobs, Stages y Tasks de cada proceso, así como su Task Time, el total leído de disco y el total leído y escrito en shuffles.
+
+Además, se va a comparar el rendimiento de Spark al usar ficheros de entrada en formato CSV, parquet sin particionar y parquet particionado.
 
 A la hora de hacer comparativas de este estilo, es importante igualar lo máximo posible las condiciones y el entorno del que dependen las mediciones. En nuestro caso, es importante que ambas sesiones de Spark cuenten con los mismos recursos y que el código sea lo más parecido posible, sin ninguna optimización de por medio. Por ejemplo, si para una de las API usamos una UDF, pero en la otra no es necesario porque existen mecanismos para evitarla, entonces debemos en ambos casos usar la UDF.
 
-Lo primero que necesitamosPara ello necesitamos haber creado un objeto \texttt{SparkSession}. En nuestro caso, esto se hace de la siguiente manera en el objeto \texttt{Main}:
+Lo primero que necesitamos para ello es crear un objeto \texttt{SparkSession}. Esto se hace de la siguiente manera:
 
 \begin{lstlisting}
-	val spark: SparkSession = SparkSession
+val spark: SparkSession = SparkSession
 	.builder()
-	.master("local[*]")
+	.config("spark.sql.shuffle.partitions", 4)
+	.master("local[4]")
 	.getOrCreate()
 \end{lstlisting}
 
-En nuestro caso con estas opciones es suficiente, ya que estamos dedicando todos los núcleos de nuestra máquina local para las tareas que vayamos a realizar. Sin embargo, existen otras opciones que podríamos añadir si fuese necesario, como un nombre para la aplicación con \texttt{.appName("Nombre")}. Un parámetro que puede resultar muy útil modificar es el de \texttt{spark.sql.broadcastTimeout}, que por defecto tiene un valor de 300 (segundos), si no tenemos muchos recursos y vemos que la aplicación para inesperadamente con una excepción que muestra el mensaje \quotes{Could not execute broadcast in 300 secs}. Para hacer esto, la creación de la \texttt{SparkSession} sería tal que:
+En nuestro caso con estas opciones es suficiente, ya que estamos dedicando 4 núcleos de nuestra máquina local y 4 particiones de shuffle para las tareas que vayamos a realizar. Sin embargo, existen otras opciones que podríamos añadir si fuese necesario, como un nombre para la aplicación con \texttt{.appName("Nombre")}. 
+
+De esta manera, si quisiéramos configurar algún parámetro, lo haríamos añadiendo más modificaciones tal que: 
 
 \begin{lstlisting}
-	val spark: SparkSession = SparkSession
+val spark: SparkSession = SparkSession
 	.builder()
-	.master("local[*]")
-	.config("spark.sql.broadcastTimeout", "36000")
-	.getOrCreate()
-\end{lstlisting}
-
-De igual manera, si quisiéramos modificar algún parámetro distinto, lo haríamos añadiendo más modificaciones tal que: 
-
-\begin{lstlisting}
-	val spark: SparkSession = SparkSession
-	.builder()
-	.master("local[*]")
 	.config("spark.some.config.option", "some-value")
 	.config("spark.some.config.option", "some-value")
 	...
+	.master("local[N]")
 	.getOrCreate()
 \end{lstlisting}
 
 Una vez tenemos el \texttt{SparkSession} creado correctamente, podemos usarlo para leer y escribir datos en distintos formatos, como CSV o Parquet. Además, nos permitirá crear DataFrames a partir distintos de tipos de datos, como Listas o Tuplas.
 
+En los ejemplos anteriores hemos visto cómo se crearía el \texttt{SparkContext} para la API de Scala, pero en el caso de usar PySpark, lo crearíamos de la siguiente manera:
 
+\begin{lstlisting}
+spark = SparkSession.builder\
+	.config("spark.sql.shuffle.partitions", 4)\
+	.master("local[4]")\
+	.getOrCreate()
+\end{lstlisting}
+
+Ya que nuestras queries son sobre conjuntos de datos pequeños, conviene reducir el número de particiones de shuffle, ya que por defecto hay 200. Spark está pensado para volúmenes grandes de datos, y es por eso que tiene un valor tan alto. El shuffle es la manera que tiene Spark de redistribuir datos a los distintos ejecutores e incluso entre máquinas. Como en nuestro caso estamos en un entorno local con 4 cores no hacen falta tantas particiones, y se ha optado por usar solamente 4.
+
+Los procesos en sí serán los mismos descritos en apartados anteriores y, en el caso de los que no se hayan descrito para un determinado lenguaje, se habrá obtenido utilizando las técnicas mencionadas en el apartado \ref{sec:migracion}. La única diferencia respecto a los descritos es que al final se ejecutará un \texttt{collect} sobre el DataFrame que contiene los resultados, lo cual hará que se ejecute el plan.
+
+
+%\subsubsection{Recogida de datos}
+
+Como se ha mencionado ya brevemente, se recogerán las distintas métricas de los procesos de la Spark UI. La Spark UI es un servicio web que se crea por cada proceso de Spark que está ejecutando en el sistema. Por defecto se abre en el puerto 4040 en el momento en el que tenemos el \texttt{SparkContext} creado, y nos proporciona información sobre el propio proceso: número de etapas, tareas, etc.
+
+En nuestro caso vamos a recolectar la siguiente información de cada proceso: trabajos completados, etapas completadas y saltadas, total de tareas completadas, tiempo de tarea, tamaño de la entrada y tamaños de datos leídos y escritos en operaciones de shuffle. Esta información la recogeremos de las pestañas \quotes{Jobs}, \quotes{Tasks} y \quotes{Executors}.
+
+\subsubsection{Comparativa entre APIs}
+
+Explicado todo esto la comparativa queda tal que:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.175]{comparativacompleta.png}
+	\centering
+	\caption{Comparativa entre APIs}
+	\label{fig:completecomparison}
+	\centering
+\end{figure}
+
+Como los resultados son bastante similares para todas las queries, vamos a centrarnos en una para explicar lo que ha sucedido. Más adelante explicaré el motivo de tener una query extra llamada \quotes{Policía}.
+
+\begin{figure}[H]
+	\includegraphics[scale=0.4]{analisistemporada.png}
+	\centering
+	\caption{Rendimiento de la query de análisis de temporada}
+	\label{fig:companalisistemporada}
+	\centering
+\end{figure}
+
+Podemos empezar centrándonos en los tiempos de tarea (Task Time). Se observa que los tiempos son muy bajos, de menos de 10 segundos para todas las mediciones. Esto puede significar varias cosas: que la máquina sobre la que se ejecutan las queries es demasiado potente o que el proceso dura muy poco, ya sea por que hace pocas operaciones o porque el conjunto de datos es muy pequeño. También podemos observar que la diferencia entre los tiempos de ejecución de ambas API es muy pequeña, siendo a veces inexistente.
+
+Si miramos la parte del uso de memoria, podemos ver que de nuevo la diferencia entre API es prácticamente nula, a veces en el orden de Kibibytes. La diferencia más grande que podemos apreciar es a nivel de Trabajos, Etapas y Tareas, pero de nuevo la diferencia es muy baja. Esto se hace más evidente si nos fijamos en todas las queries en conjunto, donde el hecho de que la API de Scala genere menos Trabajos, Etapas y Tareas es algo constante salvo en la última query, y quizá podríamos llegar a la conclusión de que la API de Scala gestiona mejor esta parte del proceso, mientras que a veces su contraparte resulta ligeramente más eficiente en cuanto a tiempos de ejecución.
+
+Sin embargo, como he comentado antes brevemente, es posible que el conjunto de datos escogido para realizar las peticiones sea muy pequeño. Spark está pensado para manejar cantidades muy grandes de datos, en el orden de Gigabytes o más y, sin embargo, el conjunto de datos que escogí para realizar este trabajo es muy pequeño en comparación, en torno a los 20 Megabytes. Esto puede provocar que todo el procesamiento se haga en un solo núcleo y en una sola máquina, y esto no es para lo que fue diseñado. Cuanto menos paralelismo haya, menor será la eficiencia de esta API en cualquiera de las variantes que estamos comparando.
+
+Es por esto último que decidí hacer una query más con un conjunto de datos un poco más grande. Este consiste en un solo archivo en formato CSV de unos 1,4 Gigabytes sobre delitos cometidos en el estado de Nueva York. La query realiza una lectura de este archivo, un filtrado sencillo, una intersección y una escritura final.
+
+Simplemente ejecutando este proceso podemos ver una diferencia notable con respecto a las otras queries, y quizá, al ser más grande el conjunto de datos, sea más representativo de la realidad. Podemos ver las métricas recogidas sobre este proceso en la siguiente imagen:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.24]{comparativapolicia.png}
+	\centering
+	\caption{Rendimiento de la query extra}
+	\label{fig:comppolicia}
+	\centering
+\end{figure}
+
+Podemos deducir entonces que no existe una diferencia notable entre las API con los tamaños de datos que estamos manejando. Lo ideal sería realizar una query sobre un conjunto de datos que ronde las decenas o centenares de Gigabytes con el máximo paralelismo posible tanto a nivel de las propias máquinas (muchos núcleos y memoria dedicadas) como a nivel de nodos (varias máquinas conectadas entre sí).
+
+Una manera que tenemos para comprobar cómo afecta el paralelismo en los procesos de Spark resulta relativamente sencillo de implementar: podemos particionar la entrada y observar qué métricas nos arroja la Spark UI. Paralelizar la entrada en teoría debería permitir que Spark dedicase más tareas a la lectura y por lo tanto más recursos. En la siguiente sección veremos los detalles de cómo afecta esto al rendimiento.
+
+
+\subsubsection{Comparativa entre tipos de fuentes de datos}
+
+Hemos visto ya cómo afecta la propia API al rendimiento de las queries. Ahora vamos a intentar simular un paralelismo extra haciendo que en lugar de leer únicamente de un archivo lea la misma tabla, pero particionada de forma que tenga que, teóricamente, utilizar más tareas y recursos para leer.
+
+Pero antes de nada, hay que comentar por qué se ha elegido el formato de archivos Parquet y qué tiene de especial para que nos pueda proporcionar beneficios frente a leer un CSV.
+
+Parquet es un formato que, además de los propios datos, almacena metadatos y realiza ciertos indexados y optimizaciones para que ocupen el menor espacio posible en disco. Además, podemos particionar la tabla según ciertas columnas clave, permitiendo que Spark, tras hacer sus optimizaciones propias del proceso, sepa qué archivos tiene que leer y cuáles no. Un ejemplo de cómo se ve una fuente de datos de entrada en disco puede ser el siguiente:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.5]{treeparquet.png}
+	\centering
+	\caption{Archivos Parquet en disco}
+	\label{fig:parquetendisco}
+	\centering
+\end{figure}
+
+Podemos ver que la tabla en cuestión está particionada según el campo \texttt{raceId}, y que tenemos una subcarpeta por cada valor que toma. Dentro de cada subcarpeta está ya el archivo Parquet, que contiene los datos para ese \texttt{raceId}. Si tuviéramos más datos, tendríamos más archivos dentro de las subcarpetas.
+
+Teóricamente leer datos que están en formato Parquet usando Spark debería ser más eficiente ya que no se lee la tabla completa, al contrario que con los CSV.
+
+Se van a comparar tres formatos de entrada: CSV, Parquet particionado y Parquet sin particionar. Originalmente el conjunto de datos venía en formato CSV, así que no necesitamos realizar ningún procesamiento extra para conseguirlo. Sin embargo, los otros dos formatos van a necesitar un poco de trabajo extra.
+
+Convertir los tipos de entrada no conlleva mucho trabajo a nivel de código, pero puede resultar enrevesado ya que se necesita conocer el conjunto de datos y realizar un análisis previo al particionado, ya que es posible realizar un particionado \quotes{malo} si no se tiene en cuenta cómo van a quedar los datos almacenados en disco.
+
+Para llevar a cabo este particionado se ha desarrollado una función que dado un nombre de tabla y un nombre de columna lleva a cabo el particionado y escribe los datos en disco:
+
+\begin{lstlisting}
+def toParquet(tableName: String, partitionCol: String): Unit = {
+	val ini = spark.read.format("csv")
+		.option("header", "true")
+		.option("sep", ",")
+		.load(s"../data/$tableName.csv")
+	
+	if (partitionCol == "noPartitionCol") {
+		ini.write.mode("overwrite")
+			.parquet(s"../data/parquet/$tableName.parquet")
+	} else {
+		ini.repartition(col(partitionCol))
+			.write.mode("overwrite")
+			.partitionBy(partitionCol)
+			.parquet(s"../data/parquet/$tableName.parquet")
+	}
+}
+\end{lstlisting}
+
+El detalle que determina el particionado es, en el \texttt{else}, las operaciones \texttt{repartition} y \texttt{partitionBy}
+
+Por comodidad, se ha creado otra función distinta que dado un nombre de tabla lo escribe como Parquet sin particionar:
+
+\begin{lstlisting}
+def toParquetNoPart(tableName: String): Unit = {
+	spark.read.format("csv")
+		.option("header", "true")
+		.option("sep", ",")
+		.load(s"../data/$tableName.csv")
+		.write.mode("overwrite")
+		.parquet(s"../data/parquetnopart/$tableName.parquet")
+}
+\end{lstlisting}
+
+Con estas dos funciones definidas, una lista con los nombres de las tablas (\texttt{files}) y un mapa que establezca una relación entre nombre de tabla y columna de particionado (\texttt{partCol}), podemos convertir todas las tablas de entrada de golpe si ejecutamos lo siguiente:
+
+\begin{lstlisting}
+files.foreach(x => toParquet(x, partCol(x)))
+\end{lstlisting}
+
+O, en el caso de que queramos parquet sin particionar:
+
+\begin{lstlisting}
+files.foreach(x => toParquetNoPart(x))
+\end{lstlisting}
+
+Una vez tenemos todos los datos como deseamos solamente tendremos que cambiar las líneas en las que se leen los datos de entrada, de forma que si antes teníamos algo como:
+
+\begin{lstlisting}
+spark.read.format("csv")
+	.option("header", "true")
+	.option("sep", ",")
+	.load("tablePath")
+\end{lstlisting}
+
+Ahora tenemos algo como:
+
+\begin{lstlisting}
+spark.read.parquet("tablePath")
+\end{lstlisting}
+
+Como he comentado brevemente antes, hay que tener especial cuidado a la hora de decidir qué columnas se usan para particionar. Es posible incluso que no nos merezca la pena particionar los datos. Vamos a ver un ejemplo de un \quotes{buen particionado} y uno \quotes{malo}.
+
+Para ver el ejemplo del \quotes{mal} particionado, vamos a referir de nuevo a la figura \ref{fig:companalisistemporada}. Si en lugar de fijarnos en la comparativa entre APIs nos centramos en las diferencias entre formatos de entrada, podemos ver algo llamativo: al leer de un Parquet particionado se tarda más del doble que leyendo de un CSV y cuatro veces más que leyendo el Parquet sin particionar. 
+
+En las queries sobre el conjunto de datos de la Fórmula 1 se decidió particionar la mayoría de tablas según el campo \texttt{raceId}, principalmente porque lo primero que se hace en muchas de ellas es filtrar por ese campo. Esto por norma general es buena práctica, ya que al particionar los datos según ese campo a la hora de llevar a cabo el procesado Spark tendrá un filtrado menos que hacer, pero las métricas obtenidas nos dicen otra cosa, ya que se esperaría que la query tardase menos y, lo más importante de todo, que leyese menos datos de disco.
+
+Lo primero no se cumple y lo segundo se cumple en parte: lee mucho menos que al usar un CSV pero no se nota una diferencia notable entre particionar o no. Empecemos mirando el por qué de los tiempos de ejecución tan altos.
+
+\begin{figure}[H]
+	\includegraphics[scale=0.4]{tareaslecturaparquet.png}
+	\centering
+	\caption{Tareas al leer Parquet particionado}
+	\label{fig:tareaslecturaparquet}
+	\centering
+\end{figure}
+
+Como podemos observar en la figura anterior, que está obtenida de la pestaña "Jobs" de la Spark UI de un proceso que utiliza Parquet particionado, se pierde mucho tiempo listando el directorio de lectura. Además de eso, se crea una tarea para cada elemento del directorio en el que se encuentra la tabla (en este caso, 1057).
+
+El otro problema que hemos visto es que no obtenemos una ganancia sustancial particionando si nos fijamos en la cantidad de datos leídos. Esto está relacionado con lo que acabamos de ver.
+
+Como comentamos anteriormente, el conjunto de datos usado originalmente era demasiado pequeño para Spark, y por tanto llegamos a la conclusión de que no sacábamos todo el rendimiento que se podría sacar de esta API. Otro problema surgido de esto es que al particionar los ficheros Parquet creamos muchos archivos con muy pocos datos dentro. Por poner un ejemplo, la tabla \texttt{constructor$\_$standings} particionada por \texttt{raceId} estará tendrá N subcarpetas dependiendo del número de valores que tome el campo clave, y cada una de las particiones tendrá muy pocos datos en ella, en torno a 10 entradas de media, ya que es la cantidad de constructores que participan en una carrera.
+
+Esto último saca a relucir otro problema: que al particionar una tabla tan pequeña es posible que los metadatos añadidos al utilizar Parquet como formato de entrada ocupen más que la propia información que contiene la tabla. La ya mencionada tabla \texttt{constructor$\_$standings} en formato CSV pesa en torno a 300KB. Usando Parquet sin particionar pesa en torno a 109KB y al particionar pesa exactamente 6MB.
+
+\begin{figure}[H]
+	\includegraphics[scale=0.4]{pesoparquetparticionado.png}
+	\centering
+	\caption{Tamaño Parquet particionado}
+	\label{fig:pesoparquetparticionado}
+	\centering
+\end{figure}
+
+Por lo tanto, podemos llegar a la conclusión de que este superávit de tiempo de ejecución puede estar producido por el hecho de tener que leer tantos archivos. Si los archivos tuvieran más información y la query llevase a cabo un procesamiento más pesado lo más probable es que no se llegase a notar. Quizá leer un archivo grande no sea mucho más lento que leer uno pequeño y por tanto en el cómputo total fuese asumible. Sin embargo, al hacer operaciones a tan pequeña escala se notan mucho los tiempos gastados en listar directorios y leer particiones tan pequeñas.
+
+Si centramos nuestra atención a la figura \ref{fig:comppolicia}, podemos ver una historia muy distinta a la recién comentada: leer de Parquet de nuevo siempre es mejor que leer un CSV, pero esta vez particionar si merece mucho la pena.
+
+Al tener un conjunto de datos más grande, leer de CSV resulta muy pesado ya que Spark tiene que leer línea a línea, columna por columna, inferir esquemas, etc. Al usar Parquet gran parte de este preprocesado se vuelve innecesario: el tipo de las columnas lo tenemos en los metadatos y solo necesitamos leer lo que realmente vamos a usar gracias a las optimizaciones de Spark. 
+
+Tanto las ganancias en Task Time como en memoria leída de disco son muy grandes. Entre leer datos de un CSV y leer de un fichero Parquet particionado el Task Time se reduce 5,75 veces, y leemos 44 veces menos datos de disco.
+
+Cabe destacar que esta tabla se ha particionado según un campo que toma una cantidad muy limitada de valores, y por lo tanto las particiones siguen siendo relativamente grandes, al contrario que en el particionado anterior.
+
+De este apartado podemos, por tanto, sacar varias conclusiones rápidas: 
+
+\begin{compactitem}
+	\item No existe una diferencia real entre APIs, especialmente cuanto más grande es el conjunto de datos.
+	\item Spark no funciona bien con pocos datos. Cuanto más, mejor.
+	\item Cuanto más paralelismo, mejor.
+	\item Para particionar correctamente una tabla es necesario conocer el contexto y no hacer las particiones demasiado pequeñas.
+\end{compactitem}
+
+En el siguiente capítulo elaboraré más estas conclusiones.
 
 
 % Nuevo capítulo
