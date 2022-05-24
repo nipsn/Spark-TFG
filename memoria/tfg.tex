@@ -587,7 +587,7 @@ Vamos a utilizar un conjunto de datos del dominio de la Fórmula 1 ya que tenemo
   \item Cuál ha sido la temporada más interesante para el espectador, teniendo en cuenta métricas como el número de adelantamientos, más cambios de líder en la clasificación general, etc.
 \end{compactitem}
 
-Para responder a estas cuestiones tendremos que realizar una serie de queries utilizando ambas API, aprendiendo en el camino cómo programarlas y viendo las diferencias y similitudes entre ambas.
+Para responder a estas cuestiones tendremos que realizar una serie de queries utilizando ambas API, aprendiendo en el camino cómo programarlas y viendo las diferencias y similitudes entre ambas. Como referencias usé \cite{sparkbook}, \cite{Spark} y \cite{PySpark}.
 
 \subsubsection{Objetivo 2}
 
@@ -606,17 +606,17 @@ Comparar el rendimiento de ambas API a nivel de tiempos de ejecución y uso de r
 
 En esta sección vamos a ver las herramientas que se van a usar, ya que se puede considerar un objetivo secundario el aprendizaje de las mismas.
 
-Lo primero que tendremos que aprender será a programar funciones sencillas en Scala. Ya que es un lenguaje que no se enseñó en Ingeniería de Computadores durante los años en los que fui alumno, considero importante obtener un nivel básico de conocimientos sobre su uso antes de lanzarse de lleno a usar su API de Spark.
+Lo primero que tendremos que aprender será a programar funciones sencillas en Scala. Ya que es un lenguaje que no se enseñó en Ingeniería de Computadores durante los años en los que fui alumno, considero importante obtener un nivel básico de conocimientos sobre su uso antes de lanzarse de lleno a usar su API de Spark. Como referencias usé \cite{scalabook} y \cite{ScalaAPI}
 
 Lo mismo podríamos decir de Python, sin embargo este lenguaje sí se cursó en la asignatura Lenguajes de Programación y se obtuvo un nivel suficiente como usuario, así que no lo veo como un objetivo.
 
 Tendremos que aprender también a utilizar cuadernos Jupyter para desarrollar código tanto en Scala como Python, ya que nos permitirá avanzar más rápidamente en las fases iniciales del proyecto al facilitar la depuración de las queries que se van a programar.
 
-A la hora de migrar queries usaremos expresiones regulares de búsqueda y sustitución. En concreto para ello se usará \texttt{sed}, y teorizaremos sobre cómo podríamos utilizar scripts de Bash para automatizar el proceso.
+A la hora de migrar queries usaremos expresiones regulares de búsqueda y sustitución. En concreto para ello se usará tanto \texttt{sed} como recursos en línea, y teorizaremos sobre cómo podríamos utilizar scripts de Bash para automatizar el proceso.
 
 Para describir la fuente de datos usaremos DataGrip de JetBrains, que nos permitirá obtener diagramas Entidad-Relación de nuestro conjunto de datos de forma más sencilla.
 
-También usaremos Git como sistema de control de versiones tanto para todo el código desarrollado como para esta misma memoria, que se va a escribir usando \LaTeX.
+También usaremos Git como sistema de control de versiones tanto para todo el código desarrollado como para esta misma memoria, que se va a escribir usando \LaTeX. Como referencia usé \cite{git}
 
 Por último, será necesario aprender \LaTeX para desarrollar esta misma memoria.
 
@@ -1954,7 +1954,7 @@ Esta librería nos permite mostrar datos gráficamente con una configuración se
 
 \begin{lstlisting}
 val driverCodes = results
-	.sort("avgPosition")
+	.sort("positionDelta")
 	.select("code")
 	.as[String]
 	.collect()
