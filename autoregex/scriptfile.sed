@@ -27,7 +27,7 @@ s/((\bisNull\b)|(\bisNotNull\b))([\)| |,|\n])/\1()\4/g
 
 # add backslash to end of line
 s/([a-zA-Z0-9\-_]*) = ([a-zA-Z0-9\-_]*)$/\1 = \2\\/g
-s/(\))($)/\1\\/g
+s/(\))$/\1\\/g
 
 # substitute conditional operators and prepare condition separation with parentheses
 s/ \&\& /\) \& (/g
