@@ -447,6 +447,9 @@ Veremos también los resultados de nuestras peticiones e intentaremos sacar conc
 
 Tras esto pasaremos a comparar el rendimiento de ambas API, y veremos cómo el conjunto de datos utilizado no fue el más adecuado. Habiendo justificado el por qué, se realizará una última petición a un conjunto de datos que encaja mejor con la librería que estamos usando. Veremos el rendimiento en tareas necesarias para ejecutar las peticiones, tiempos de tarea y uso de memoria. Además, se comparará el rendimiento entre formatos de entrada: usaremos ficheros CSV, Parquet sin particionar y Parquet particionado para simular cierto paralelismo.
 
+Todo el material desarrollado para este TFG está disponible en el repositorio disponible en el apéndice \ref{repo}.
+
+
 \mbox{} \bigskip
 
 \noindent \textbf{Palabras clave}:
@@ -3174,7 +3177,7 @@ La idea inicial para automatizar el proceso consistía en concatenar mandatos qu
 
 Este nos permite crear un archivo de texto en el que colocaremos todas las instrucciones que queremos que se lleven a cabo sobre nuestro \textit{stream} de texto o archivo en orden secuencial. También permite insertar comentarios y líneas en blanco, que son muy útiles para facilitar la lectura y que el usuario pueda comprender qué está pasando.
 
-El orden en el que se aplican las instrucciones depende de las dependencias que existan entre ellas. Por ejemplo, no podemos primero añadir el \texttt{F.} y luego estandarizar las llamadas a las columnas. Por norma general existen pocas dependencias de este tipo, pero las que existen se han tenido en cuenta a la hora de establecer el orden de aplicación. El archivo completo se puede consultar en el repositorio de Github asociado al proyecto \footnote{\url{https://github.com/nipsn/Spark-TFG/blob/main/autoregex/scriptfile.sed}}.
+El orden en el que se aplican las instrucciones depende de las dependencias que existan entre ellas. Por ejemplo, no podemos primero añadir el \texttt{F.} y luego estandarizar las llamadas a las columnas. Por norma general existen pocas dependencias de este tipo, pero las que existen se han tenido en cuenta a la hora de establecer el orden de aplicación. El archivo completo se puede consultar en el repositorio de Github asociado al proyecto. En el apéndice \ref{repo} podemos encontrar un enlace directo al repositorio.
 
 Otro aspecto a tener en cuenta es la aplicación de algunas expresiones regulares con Perl. Esto se ha hecho debido a que el estándar PCRE2 nos proporciona la posibilidad de evaluar de forma no codiciosa, es decir, nos permite quedarnos con lo que deseemos hasta la primera aparición de cierto carácter y debido también a que podemos distinguir el carácter de retorno de carro. Esto ha sido esencial a la hora de desarrollar las expresiones para sustituir listas y mapas, ya que normalmente están definidas en varias líneas para mejorar la legibilidad.
 
@@ -3332,6 +3335,38 @@ En este caso se buscaba ver cuál ha sido el fabricante con más victorias en ca
 
 
 Como se puede observar, el piloto más consistente es Fernando Alonso, con una diferencia entre las vueltas rápidas y todas las vueltas de la temporada de 1.461 segundos. Podemos ver también que el campeón de ese año, Sebastian Vettel queda en la parte baja de esta clasificación, con una diferencia al primero de casi 6 segundos.
+
+
+\chapter{Repositorio de Github}
+\label{repo}
+
+En el enlace \url{https://github.com/nipsn/Spark-TFG} se puede consultar todo el material desarrollado a lo largo de esta práctica. El \texttt{README} es el siguiente:
+
+\begin{lstlisting}
+Spark-TFG
+
+Comparativa de las API de Spark en Scala y Python
+
+Este repositorio contiene todo el contenido desarrollado para la realizacion del TFG del mismo titulo.
+
+En concreto contiene:
+
+ * Notebooks con el codigo desarrollado en la carpeta "notebooks"
+ * Script de automatizacion de migracion + ejemplo de entrada y salida en la carpeta "autoregex"
+ * Archivos relacionados con la memoria en "memoria".
+ * Archivos relacionados con la presentacion en "presentacion".
+ * En "data" esta la tabla desarrollada a partir de otras que relaciona piloto con constructor y temporada.
+ * En "memoria" ademas tenemos la hoja de calculo con los datos recogidos para la comparativa en formato de hoja de calculo de LibreOffice.
+
+Para realizar esta comparativa, han realizado las siguientes queries tanto en la API de Spark de Python (PySpark) como en la API de Scala:
+
+ * Fabricante mas dominante en la decada de los 90 (campeonatos ganados y carreras ganadas).
+ * Piloto mas consistente en la temporada 2012 (tiempos de vuelta en carrera vs tiempo en clasificacion)
+ * Mejor piloto de la historia.
+ * Temporada mas interesante para el espectador.
+ * Analisis de temporada por piloto.
+
+\end{lstlisting}
 
 
 
