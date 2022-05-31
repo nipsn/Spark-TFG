@@ -445,7 +445,7 @@ En este TFG vamos a ver cómo programar queries o peticiones a una fuente de dat
 
 Veremos también los resultados de nuestras peticiones e intentaremos sacar conclusiones de ellas. Para ello usaremos la librería Plotly, que nos generará gráficos para ayudar visualmente a la tarea.
 
-Tras esto pasaremos a comparar el rendimiento de ambas API, y veremos cómo el conjunto de datos utilizado no fue el más adecuado. Habiendo justificado el por qué, se realizará una última petición a un conjunto de datos que encaja mejor con la API que estamos usando. Veremos el rendimiento en tareas necesarias para ejecutar las peticiones, tiempos de tarea y uso de memoria. Además, se comparará el rendimiento entre formatos de entrada: usaremos ficheros CSV, Parquet sin particionar y Parquet particionado para simular cierto paralelismo.
+Tras esto pasaremos a comparar el rendimiento de ambas API, y veremos cómo el conjunto de datos utilizado no fue el más adecuado. Habiendo justificado el por qué, se realizará una última petición a un conjunto de datos que encaja mejor con la librería que estamos usando. Veremos el rendimiento en tareas necesarias para ejecutar las peticiones, tiempos de tarea y uso de memoria. Además, se comparará el rendimiento entre formatos de entrada: usaremos ficheros CSV, Parquet sin particionar y Parquet particionado para simular cierto paralelismo.
 
 \mbox{} \bigskip
 
@@ -789,7 +789,7 @@ Esta tabla contiene información sobre todas las carreras celebradas en la histo
 
 \subsubsection{Tabla \texttt{results}}
 
-Esta tabla es similar a la de resultados por constructor, pero para pilotos. Es la tabla más completa de todas, ya que nos proporciona una entrada por piloto y carrera con información relevante de cómo se ha desarrollado la misma. Las columnas más interesantes pueden ser la posición de salida y la posición final, los puntos ,las vueltas dadas, la vuelta más rápida, la velocidad más rápida y, en el caso de que haya habido algún incidente, el id del estado. 
+Esta tabla es similar a la de resultados por constructor, pero para pilotos. Es la tabla más completa de todas, ya que nos proporciona una entrada por piloto y carrera con información relevante de cómo se ha desarrollado la misma. Las columnas más interesantes pueden ser la posición de salida y la posición final, los puntos, las vueltas dadas, la vuelta más rápida, la velocidad más rápida y, en el caso de que haya habido algún incidente, el id del estado. 
 
 \begin{figure}[H]
   \includegraphics[scale=0.27]{results_table.png}
@@ -986,20 +986,12 @@ queryEnCuestion(entradaLeida1, entradaLeida2, ...)
 
 Es por esto que en la descripción de las queries se va a dar por asumido que tenemos los datos de entrada ya leídos, salvo la primera vez que hagamos una lectura, en cuyo caso se explicará en detalle.
 
-\subsection{Piloto más consistente en un periodo concreto de tiempo}
+\subsection{Piloto más consistente en la temporada 2012}
 
-En esta query intentaremos averiguar cuál ha sido el piloto más consistente en un periodo de tiempo dado, en este caso en la temporada 2012. Ya que este término puede resultar ambiguo, en concreto intentaremos averiguar qué piloto tuvo una menor diferencia entre la media de sus vueltas rápidas y la media de todas las vueltas de todos los Grandes Premios de este periodo de tiempo. Esto nos resultará especialmente interesante teniendo en cuenta que cuanto menor sea esta diferencia, más consistente habrá sido el piloto respecto a su mejor resultado.
-
-Necesitaremos cruzar varias fuentes de datos: 
-
-\begin{compactitem}
-	\item \texttt{races.csv}
-	\item \texttt{lap$\_$times.csv}
-	\item \texttt{drivers.csv}
-	\item \texttt{results.csv}
-\end{compactitem}
+En esta query intentaremos averiguar cuál ha sido el piloto más consistente en un periodo de tiempo en concreto, en este caso en la temporada 2012, aunque con mínimos cambios podríamos verlo para cualquier periodo que deseásemos. Ya que este término puede resultar ambiguo, en concreto intentaremos averiguar qué piloto tuvo una menor diferencia entre la media de sus vueltas rápidas y la media de todas las vueltas de todos los Grandes Premios de este periodo de tiempo. Esto nos resultará especialmente interesante teniendo en cuenta que cuanto menor sea esta diferencia, más consistente habrá sido el piloto respecto a su mejor resultado.
 
 Dicho esto, la query tiene el siguiente aspecto:
+\newpage
 
 \begin{lstlisting}
 def queryConsistencia(races:DataFrame, lap_times:DataFrame, drivers:DataFrame, results:DataFrame):DataFrame = {
@@ -1507,9 +1499,7 @@ Los cambios en los que nos vamos a centrar van a ser los siguientes:
 
 \textbf{Imports}
 
-Para migrar una query, lo primero es traducir los \texttt{imports}. En este caso vamos a necesitar las funciones de Spark SQL, los tipos propios de Spark y las ventanas. En Python, al ser un lenguaje muy explícito, es recomendable importar las funciones que vayamos a necesitar con la sintaxis \texttt{import {paquete} as {nombre}} si vamos a necesitar el paquete completo. En nuestro caso, esto es absolutamente necesario, ya que si importásemos la función \texttt{abs} del paquete \texttt{pyspark.sql.functions}, podría confundirse con la función \texttt{abs} que el lenguaje trae. Como este caso hay varios, entre ellos \texttt{max}, \texttt{min} o \texttt{avg}.
-
-Por tanto, nuestros \texttt{imports} tendrán que tener la siguiente forma:
+Para migrar una query, lo primero es traducir los \texttt{imports}. En este caso vamos a necesitar las funciones de Spark SQL, los tipos propios de Spark y las ventanas. En Python, al ser un lenguaje muy explícito, es recomendable importar las funciones que vayamos a necesitar con la sintaxis \texttt{import {paquete} as {nombre}} si vamos a necesitar el paquete completo. En nuestro caso, esto es absolutamente necesario, ya que si importásemos la función \texttt{abs} del paquete \texttt{pyspark.sql.functions}, podría confundirse con la función \texttt{abs} que el lenguaje trae. Como este caso hay varias, entre ellos \texttt{max}, \texttt{min} o \texttt{avg}, nuestros \texttt{imports} tendrán que tener la siguiente forma:
 
 \begin{lstlisting}
 from pyspark.sql import functions as F
@@ -1673,7 +1663,7 @@ Se ha observado que algunas funciones de \texttt{DataFrame} que están declarada
 
 En la API de Python estos dos argumentos se invierten: primero recibimos las columnas a tener en cuenta y después el valor que sustituirá los nulos.
 
-Visto este caso podemos llegar a preguntarnos qué otras funciones siguen este patrón, es decir, que en una API tienen una declaración y en la otra siguen una distinta. Esto es una pregunta difícil de responder, ya que existen más de mil funciones aplicables a un DataFrame, y para comprobarlo tendríamos que dedicar mucho tiempo y esfuerzo, más aún si se hace manualmente.
+Visto este caso podemos llegar a preguntarnos qué otras funciones siguen este patrón, es decir, que en una API tienen una declaración y en la otra siguen una distinta. Esto es una pregunta difícil de responder, ya que existen numerosas funciones aplicables a un \texttt{DataFrame}, y para comprobarlo tendríamos que dedicar mucho tiempo y esfuerzo, más aún si se hace manualmente.
 
 Además, también existe el caso de que tengamos funciones en una API que no existan en la otra, como es el caso de \texttt{replace}, que está en PySpark pero no en Scala Spark.
 
@@ -1698,7 +1688,7 @@ Se tratarán los siguientes casos:
 	\item Otros ajustes menores.
 \end{compactitem}
 
-Al no disponer de todo el espacio que quisiera, se van a explicar las dos más interesantes y dejaremos el resto para el apéndice \ref{sec:regexplained}. Todas ellas se desarrollarán con el comando \texttt{sed} en mente, que utiliza el estándar POSIX ERE \footnote{\url{shorturl.at/pvyDL}}, salvo dos de ellas, que veremos en sus respectivos apartados.
+Al no disponer de todo el espacio que quisiera, se van a explicar las dos más interesantes y dejaremos el resto para el apéndice \ref{sec:regexplained}. Todas ellas se desarrollarán con el comando \texttt{sed} en mente, que utiliza el estándar POSIX ERE, salvo dos de ellas. Estas las veremos en sus respectivos apartados.
 
 \subsubsection{Añadir \texttt{F.} a las funciones de columna}
 
@@ -1749,7 +1739,7 @@ test = data\
 
 Esta última expresión detecta cualquier variable asignada a otra, de forma que si nuestro código contiene asignaciones normales u operaciones que no utilicen Spark también se verán afectadas.
 
-Con el conjunto de sustituciones directas y expresiones regulares desarrolladas ya tenemos cubierta una gran parte del código que nos podamos encontrar a la hora de crear queries básicas. Cierto es que dentro de todas las opciones que nos ofrece Spark se cubren casos muy limitados, pero si se avanzase en el tema de las expresiones regulares quizá fuese posible cubrir la gran mayoría del código que se puede desarrollar en Scala Spark. A continuación se muestran algunas de las limitaciones nos encontraríamos, es decir, código que no se puede traducir directamente y que requeriría una parte de interpretación, análisis de la funcionalidad y replicado de la misma.
+Con el conjunto de sustituciones directas y expresiones regulares desarrolladas tanto aquí como en el apéndice ya tenemos cubierta una gran parte del código que nos podamos encontrar a la hora de crear queries básicas. Cierto es que dentro de todas las opciones que nos ofrece Spark se cubren casos muy limitados, pero si se avanzase en el tema de las expresiones regulares quizá fuese posible cubrir la gran mayoría del código que se puede desarrollar en Scala Spark. A continuación se muestran algunas de las limitaciones nos encontraríamos, es decir, código que no se puede traducir directamente y que requeriría una parte de interpretación, análisis de la funcionalidad y replicado de la misma.
 
 
 
@@ -1760,17 +1750,17 @@ Pese a que gran parte de la traducción o migración se puede hacer mediante exp
 
 \textbf{Separación de código por comentarios}
 
-Como se comentó anteriormente, es posible intercalar comentarios y líneas en blanco en Scala sin que de error. De hecho, puede ser útil a la hora de aclarar ciertos aspectos del código, pero en Python esto no está permitido. Todos los comentario tienen que ir antes o después de la query de Spark. Por ello, sería buena idea detectar estos casos en los que tenemos código con comentarios intercalados y separarlo como propusimos anteriormente:
+Como se comentó anteriormente, es posible intercalar comentarios y líneas en blanco en Scala sin que de error. De hecho, puede ser útil a la hora de aclarar ciertos aspectos del código, pero en Python esto no está permitido. Todos los comentarios tienen que ir antes o después de la query de Spark. Por ello, sería buena idea detectar estos casos en los que tenemos código con comentarios intercalados y separarlo como propusimos anteriormente:
 
 \begin{lstlisting}
-	driverStats = spark.read.format("csv")\
-		.option("header", "true")\
-		.option("sep", ",")\
-		.load("../data/lap_times.csv")
+driverStats = spark.read.format("csv")\
+	.option("header", "true")\
+	.option("sep", ",")\
+	.load("../data/lap_times.csv")
 	
-	# filtramos las carreras
-	driverStats = driverStats\
-		.join(races, "raceId")
+# filtramos las carreras
+driverStats = driverStats\
+	.join(races, "raceId")
 \end{lstlisting}
 
 Es decir, buscamos detectar comentarios y \quotes{partir} la query en dos. Para ello, necesitamos guardar el nombre del \texttt{DataFrame}, detectar el código hasta un comentario y el comentario en sí, y estos dos N veces. Esto lo podemos hacer con la siguiente expresión:
@@ -1908,9 +1898,9 @@ Ese código resulta en una gráfica que mostrará en el eje horizontal los disti
 
 \section{Respuestas a las consultas}
 
-En este apartado se proporcionarán las respuestas obtenidas a las consultas descritas en los apartados anteriores. Veremos tanto respuestas obtenidas directamente con Spark en formato de texto como gráficas resultantes de la utilización de la librería Plotly. Nos vamos a centrar en los resultados de la query \quotes{Análisis de temporada por piloto}. El resto de resultados se podrán consultar en el apéndice \ref{sec:apendice2}
+En este apartado se proporcionarán las respuestas obtenidas a las consultas descritas en los apartados anteriores. Veremos tanto respuestas obtenidas directamente con Spark en formato de texto como gráficas resultantes de la utilización de la librería Plotly. Nos vamos a centrar en los resultados de la query \quotes{Análisis de temporada por piloto}. El resto de resultados se podrán consultar en el apéndice \ref{sec:apendice2}.
 
-A lo largo de esta sección van a aparecer en numerosas ocasiones los códigos de piloto en lugar de sus nombres completos. Esto es por mantener las figuras con un tamaño. A continuación se proporciona una leyenda que establece una correspondencia entre código de piloto y su nombre completo:
+A lo largo de esta sección van a aparecer en numerosas ocasiones los códigos de piloto en lugar de sus nombres completos. Esto es por mantener las figuras con un tamaño razonable. A continuación se proporciona una leyenda que establece una correspondencia entre código de piloto y su nombre completo:
 
 \begin{figure}[H]
 	\includegraphics[scale=0.4]{leyendapilotos.png}
