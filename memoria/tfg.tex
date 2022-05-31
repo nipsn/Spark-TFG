@@ -222,7 +222,6 @@ upquote=true,
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\usepackage{listings}
 
 % "define" Scala
 \lstdefinelanguage{scala}{
@@ -268,7 +267,7 @@ upquote=true,
 
 \lstdefinelanguage{regex}{
 	morekeywords={[, ], *, +, \^, ?},
-	otherkeywords={$\backslash$},
+	otherkeywords={\symbol{92}},
 	sensitive=true
 }
 
@@ -442,11 +441,11 @@ Quiero dedicar este trabajo a todo el mundo que ha confiado en mí a lo largo de
 
 \chapter*{Resumen}
 
-En este TFG vamos a ver cómo programar queries o peticiones a una fuente de datos local, ya sea en formato CSV o Parquet, usando Spark tanto en su API de Scala como de Python. Veremos los detalles que diferencian sintácticamente ambas API y cómo podríamos migrar peticiones de la API de Scala a la de Python. Tras esto, al ver que resulta relativamente arduo hacerlo a mano, desarrollaremos una serie de expresiones regulares con su respectiva expresión de sustitución que nos ayudará en el proceso de migración, y propondremos cómo se podría automatizar este proceso.
+En este TFG vamos a ver cómo programar queries o peticiones a una fuente de datos local, ya sea en formato CSV o Parquet, usando Spark tanto en su API de Scala como de Python. Veremos los detalles que diferencian sintácticamente ambas API y cómo podríamos migrar peticiones de la API de Scala a la de Python. Tras esto, al ver que resulta relativamente arduo hacerlo a mano, desarrollaremos una serie de expresiones regulares con su respectiva expresión de sustitución que nos ayudará en el proceso de migración, y trataremos de automatizarlo a través de un \textit{script}.
 
 Veremos también los resultados de nuestras peticiones e intentaremos sacar conclusiones de ellas. Para ello usaremos la librería Plotly, que nos generará gráficos para ayudar visualmente a la tarea.
 
-Tras esto pasaremos a comparar el rendimiento de ambas API, y veremos cómo el conjunto de datos utilizado no ha sido el más adecuado. Habiendo justificado el por qué, se realizará una última petición a un conjunto de datos que encaja mejor con la API que estamos usando. Veremos el rendimiento en tareas necesarias para ejecutar las peticiones, tiempos de tarea y uso de memoria. Además, se comparará el rendimiento entre formatos de entrada: usaremos ficheros CSV, Parquet sin particionar y Parquet simular cierto paralelismo y demostrar cómo ayuda a la hora de usar estas API.
+Tras esto pasaremos a comparar el rendimiento de ambas API, y veremos cómo el conjunto de datos utilizado no fue el más adecuado. Habiendo justificado el por qué, se realizará una última petición a un conjunto de datos que encaja mejor con la API que estamos usando. Veremos el rendimiento en tareas necesarias para ejecutar las peticiones, tiempos de tarea y uso de memoria. Además, se comparará el rendimiento entre formatos de entrada: usaremos ficheros CSV, Parquet sin particionar y Parquet particionado para simular cierto paralelismo.
 
 \mbox{} \bigskip
 
@@ -559,7 +558,7 @@ Mediante el uso de APIs disponibles en distintos lenguajes es posible programar 
 
 A la hora de desplegar un entorno que use Spark como motor para el procesado de datos, nos puede surgir la duda de cuál de las distintas API podemos utilizar. A simple vista puede resultar complicado: dejando de lado la API de SQL, tenemos APIs disponibles en Scala, Python, Java y R. Sería interesante tener información sobre su rendimiento antes de tomar una decisión que puede costar mucho dinero a nivel de empresa.
 
-Es por esto último que nos vamos a centrar en dos APIs: Scala Spark y PySpark. Se han elegido expresamente dado que una es \quotes{nativa} y otra es \quotes{no nativa}, que son básicamente las dos categorías de APIs disponibles. Por un lado como nativas tenemos a la de Java y Scala y como no nativas a la de Python y R.
+Es por esto último que nos vamos a centrar en dos APIs: Scala Spark y PySpark. Se han elegido expresamente dado que una es \quotes{nativa} y otra es \quotes{no nativa}, las dos categorías de APIs disponibles. Por un lado como nativas tenemos a la de Java y Scala y como no nativas a la de Python y R.
 
 Este trabajo consistirá en intentar establecer una serie de comparativas y tratar de llegar a una conclusión lo más clara posible sobre cuál de estas dos es la más eficiente dentro del entorno limitado del que dispondremos.
 
@@ -587,7 +586,7 @@ Vamos a utilizar un conjunto de datos del dominio de la Fórmula 1 ya que tenemo
   \item Cuál ha sido la temporada más interesante para el espectador, teniendo en cuenta métricas como el número de adelantamientos, más cambios de líder en la clasificación general, etc.
 \end{compactitem}
 
-Para responder a estas cuestiones tendremos que realizar una serie de queries utilizando ambas API, aprendiendo en el camino cómo programarlas y viendo las diferencias y similitudes entre ambas. Como referencias usé \cite{sparkbook}, \cite{Spark} y \cite{PySpark}.
+Para responder a estas cuestiones tendremos que realizar una serie de queries utilizando ambas API, aprendiendo en el camino cómo programarlas y viendo las diferencias y similitudes entre ambas. Para ello usé \cite{sparkbook}, \cite{Spark} y \cite{PySpark}.
 
 \subsubsection{Objetivo 2}
 
@@ -606,13 +605,13 @@ Comparar el rendimiento de ambas API a nivel de tiempos de ejecución y uso de r
 
 En esta sección vamos a ver las herramientas que se van a usar, ya que se puede considerar un objetivo secundario el aprendizaje de las mismas.
 
-Lo primero que tendremos que aprender será a programar funciones sencillas en Scala. Ya que es un lenguaje que no se enseñó en Ingeniería de Computadores durante los años en los que fui alumno, considero importante obtener un nivel básico de conocimientos sobre su uso antes de lanzarse de lleno a usar su API de Spark. Como referencias usé \cite{scalabook} y \cite{ScalaAPI}
+Lo primero que tendremos que aprender será a programar funciones sencillas en Scala. Ya que es un lenguaje que no se enseñó en Ingeniería de Computadores durante los años en los que fui alumno, considero importante obtener un nivel básico de conocimientos sobre su uso antes de lanzarse de lleno a usar su API de Spark. Para aprender usé \cite{scalabook} y \cite{ScalaAPI}
 
 Lo mismo podríamos decir de Python, sin embargo este lenguaje sí se cursó en la asignatura Lenguajes de Programación y se obtuvo un nivel suficiente como usuario, así que no lo veo como un objetivo.
 
 Tendremos que aprender también a utilizar cuadernos Jupyter para desarrollar código tanto en Scala como Python, ya que nos permitirá avanzar más rápidamente en las fases iniciales del proyecto al facilitar la depuración de las queries que se van a programar.
 
-A la hora de migrar queries usaremos expresiones regulares de búsqueda y sustitución. En concreto para ello se usará tanto \texttt{sed} como recursos en línea, y teorizaremos sobre cómo podríamos utilizar scripts de Bash para automatizar el proceso.
+A la hora de migrar queries usaremos expresiones regulares de búsqueda y sustitución. En concreto para ello se usará tanto \texttt{sed} como Perl y recursos en línea para el desarrollo de nuestras expresiones. Usaremos dos estándares: POSIX ERE y PCRE2. Después se realizará un \textit{script} que aplicará todas nuestras expresiones secuencialmente.
 
 Para describir la fuente de datos usaremos DataGrip de JetBrains, que nos permitirá obtener diagramas Entidad-Relación de nuestro conjunto de datos de forma más sencilla.
 
@@ -633,7 +632,7 @@ En primer lugar veremos una descripción detallada de los datos de los que dispo
 
 Luego pasaremos a centrarnos en la programación de queries: primero en Scala Spark y luego en PySpark. Se describirá a grandes rasgos qué queremos conseguir y el por qué. Tras esto, nos centraremos en el proceso de construcción de queries desde un plano más técnico. En concreto, veremos cómo se programa una query en cada API, dejando el resto para los apéndices.
 
-Por último veremos el proceso de migración de queries desde Scala a Python, centrándonos en las diferencias entre APIs y trataremos de facilitar lo máximo este proceso mediante el desarrollo de una serie de expresiones regulares.
+Por último veremos el proceso de migración de queries desde Scala a Python, centrándonos en las diferencias entre APIs y trataremos de facilitar lo máximo este proceso mediante el desarrollo de una serie de expresiones regulares y un \textit{script} para automatizarlo.
 
 \section{Fuentes de datos}
 
@@ -1278,10 +1277,6 @@ Para ello, tenemos que hacer otra intersección con la tabla \texttt{drivers} y 
 .orderBy("avgDiff")
 \end{lstlisting}
 
-\newpage
-
-
-
 
 \section{Programación de queries en PySpark}
 
@@ -1491,7 +1486,7 @@ return overtakes\
 
 
 
-\section{Migración de queries de Scala Spark a PySpark}
+\section{Migración de queries}
 \label{sec:migracion}
 
 En esta sección me centraré en describir el proceso de migración de una query escrita en Scala Spark a una query en PySpark. Para ello utilizaré como ejemplo la query descrita en la sección \ref{analisistemporada}, pero sin tener en cuenta la abstracción que separa las lecturas de la propia query, es decir, se leerán las tablas y directamente se operará sobre ellas.
@@ -1544,7 +1539,7 @@ de variable, como es el caso de Scala u otros lenguajes como Java o C. En lugar 
 
 \textbf{Indentado inesperado}
 
-Lo siguiente que nos dirá el intérprete de Python al intentar ejecutar el código habiendo eliminado lo que acabamos de comentar es que ha habido un indentado inesperado. Python en concreto es un lenguaje estricto con las indentaciones, ya que indican al programa el scope del código indentado. Para solucionar este error, necesitamos incorporar al final de cada línea el carácter \texttt{$\backslash$}, lo cual hace que el intérprete vea un trozo de código de varias líneas como una sola. Este carácter tendrá que estar presente en todas las líneas menos la última.
+Lo siguiente que nos dirá el intérprete de Python al intentar ejecutar el código habiendo eliminado lo que acabamos de comentar es que ha habido un indentado inesperado. Python en concreto es un lenguaje estricto con las indentaciones, ya que indican al programa el scope del código indentado. Para solucionar este error, necesitamos incorporar al final de cada línea el carácter \texttt{\symbol{92}}, lo cual hace que el intérprete vea un trozo de código de varias líneas como una sola. Este carácter tendrá que estar presente en todas las líneas menos la última.
 
 Con estos cambios incorporados, nuestra query tiene la siguiente pinta:
 
@@ -1594,7 +1589,7 @@ val driverStats = spark.read.format("csv")
 	.join(races, "raceId")
 \end{lstlisting}
 
-Esto en Python no es posible hacerlo por el mismo motivo por el que tenemos que añadir el carácter \texttt{$\backslash$} al final de cada línea: Internamente interpretará todo este código como una sola línea. Para solucionar esto tenemos dos opciones, ambas correctas.
+Esto en Python no es posible hacerlo por el mismo motivo por el que tenemos que añadir el carácter \texttt{\symbol{92}} al final de cada línea: Internamente interpretará todo este código como una sola línea. Para solucionar esto tenemos dos opciones, ambas correctas.
 
 La primera sería deshacernos de los espacios y juntar todo el código, teniendo también que eliminar los comentarios. La segunda sería partir la query en varias partes como se muestra a continuación:
 
@@ -1641,205 +1636,7 @@ Donde podemos ver que se utilizan listas, en este caso para indicar las columnas
 
 Por otro lado esto nos puede surgir el tener que traducir un Mapa. En este caso usaremos los diccionarios de Python, en el que sustituiremos los caracteres \texttt{->} que separan la clave del valor por \texttt{:}. También tendremos que eliminar de nuevo el \texttt{Map} y cambiar los paréntesis que lo envuelven por llaves del estilo \texttt{{}}
 
-Con estos cambios mencionados podrían cubrirse la mayoría de queries sencillas que nos encontremos, pero existen detalles importantes a tener en cuenta si el código utiliza funciones más avanzadas.
-
-\subsection{Expresiones regulares para facilitar la migración}
-
-En esta sección me gustaría hablar de una herramienta que puede facilitar mucho la migración de queries de Scala Spark a PySpark. Estoy hablando de ciertas expresiones regulares que nos ahorrarían potencialmente una cantidad considerable de tiempo en el caso de que tuviéramos que migrar queries muy grandes. A pesar de que nos pueden facilitar la experiencia para labores repetitivas como añadir el prefijo \texttt{F.} a cada función de columna, hay ciertos aspectos que seguirán requiriendo intervención manual, como los que comentaremos más adelante.
-
-Se tratarán los siguientes casos:
-
-\begin{compactitem}
-	\item Sustituciones directas.
-	\item Estandarización de las invocaciones a \texttt{col}.
-	\item Añadir \texttt{F.} a las funciones de columna.
-	\item Corregir las invocaciones a los tipos de Spark.
-	\item Eliminación de \texttt{val} y \texttt{var}.
-	\item Adición del carácter \texttt{$\backslash$} al final de cada línea.
-	\item Traducción de listas, secuencias y arrays.
-	\item Traducción de Mapas.
-	\item Otros ajustes menores.
-\end{compactitem}
-
-
-\textbf{Sustituciones Directas}
-
-Podemos empezar hablando de sustituciones sencillas que no requieren del uso de expresiones regulares complejas. Un ejemplo de sustitución de este tipo serían los operadores lógicos \texttt{\&\&} y \texttt{||}. Simplemente podríamos sustituirlos por su variante de Python comentada anteriormente. Otros ejemplos incluyen:
-
-\begin{compactitem}
-	\item Comentarios de una sola línea: de \texttt{//} a \texttt{\#}.
-	\item Operadores de igualdad: \texttt{===} a \texttt{==} y \texttt{=!=} a \texttt{!=}.
-	\item Valores nulos: \texttt{null} a \texttt{None}.
-	\item Valores booleanos: \texttt{true} a \texttt{True} y \texttt{false} a \texttt{False}.
-	\item Descriptores de orden para ventanas: \texttt{desc} a \texttt{desc()} y \texttt{asc} a \texttt{asc()}
-	\item La función \texttt{isInCollection} pasa a \texttt{isin}
-\end{compactitem}
-
-
-\textbf{Estandarización de las invocaciones a \texttt{col}}
-
-Una vez hemos terminado con estas sustituciones sencillas, podemos empezar a aprovechar la potencia de las expresiones regulares. Una de las consecuencias de utilizar estas herramientas será que acabaremos con un código estandarizado. Por ejemplo, en Scala Spark es posible invocar una columna de las siguientes maneras si importamos los implícitos de Spark:
-
-\begin{lstlisting}
-import spark.implicits._
-	
-col("colName")
-$"colName"
-'colName
-\end{lstlisting}
-
-Mientras que en Python podemos hacerlo de las siguientes formas:
-
-\begin{lstlisting}
-import pyspark.sql.functions as F
-
-F.col("colName")
-dataframe.colName
-\end{lstlisting}
-
-Como para ambas API podemos usar la función \texttt{col}, entonces nos interesaría transformar las otras dos maneras de invocar columnas a esta. Para ello podemos usar las siguientes expresiones regulares:
-\begin{compactitem}
-	\item Con \texttt{\$(".+?(?=")")} detectamos el primer caso, y lo sustituimos por \texttt{col(\$1)}
-	\item Con \texttt{'(.+?(?=[)| |.|,]))} detectamos el segundo y sustituimos por \texttt{col("\$1")}
-\end{compactitem}
-
-
-\textbf{Añadir \texttt{F.} a las funciones de columna}
-
-Con esto tendríamos gran parte de las invocaciones a columnas estandarizadas. Nótese que no hemos añadido el prefijo \texttt{F.}, ya que esto lo haremos a continuación de forma estándar para todas las funciones.
-
-Para hacer esto debemos conseguir todos los nombres de todas las funciones del paquete \texttt{functions} y formar una expresión regular que las detecte. Esto lo podemos hacer de la siguiente manera:
-
-\begin{lstlisting}
-from pyspark.sql import functions
-
-regex = "(" + "|".join(dir(functions)[39:]) +  ")\("
-\end{lstlisting}
-
-La función \texttt{dir} lista los contenidos de un paquete en este caso, y necesitamos descartar los 39 primeros elementos ya que no se trata de funciones como tal. Entendido esto, esta expresión regular la podemos imprimir por pantalla y guardarla para aplicar cuando la necesitemos.
-
-En nuestro caso, lo que detecte esta expresión regular lo sustituiremos por \texttt{F.\$1(}.
-
-
-\textbf{Corregir las invocaciones a los tipos de Spark}
-
-Lo siguiente será añadir el prefijo \texttt{T.} y los paréntesis a los tipos de Spark. En esta ocasión no fui capaz de listarlos como en el caso anterior y se hizo a mano, pero la idea sigue siendo colocar un operador OR entre cada elemento posible, todo rodeado por paréntesis.
-
-Esta expresión regular luego la sustituiríamos por T.\$1().
-
-
-\textbf{Eliminación de \texttt{val} y \texttt{var}}
-
-Lo siguiente será eliminar los \texttt{var} y \texttt{val} de las declaraciones, lo cual podemos conseguir mediante la siguiente expresión regular:
-
-\texttt{(val|var)[ ]+?(?=[a-zA-Z])}
-
-Todo lo que detecte deberá ser sustituido por la cadena vacía, esencialmente eliminándolos. Cabe destacar que en el caso de que tengamos funciones definidas como \texttt{val}, se necesitará intervención manual como comentaremos más adelante.
-
-
-\textbf{Adición del carácter \texttt{$\backslash$} al final de cada línea}
-
-La siguiente tarea será añadir el carácter \texttt{$\backslash$} al final de cada línea de la query. Para esto utilizaremos dos expresiones regulares. La primera de ellas detectará como línea de query aquella que tenga un cierre de paréntesis y una nueva línea, y la segunda actuará cuando tengamos una asignación de un DataFrame a otro seguido de las operaciones pertinentes.
-
-Para ilustrar este caso, pongamos que tenemos la siguiente query, donde ya hemos aplicado las expresiones regulares anteriores:
-
-\begin{lstlisting}
-test = data
-	.withColumn(...)
-	.filter(...)
-\end{lstlisting}
-
-Si aplicamos la expresión regular \texttt{($\backslash$))($\backslash$n)} y sustituimos por  \texttt{\$1$\backslash$$\backslash$\$2}, la query quedaría tal que:
-
-\begin{lstlisting}
-test = data
-	.withColumn(...)\
-	.filter(...)\
-\end{lstlisting}
-
-Sin embargo, esto sigue lanzando un error, ya que también deberíamos añadir dicho carácter en la primera línea. Para ello detectamos cuando tengamos una asignación con \texttt{([a-zA-Z0-9\-\_]*) = ([a-zA-Z0-9\-\_]*)$\backslash$n}
-, podemos sustituir por \texttt{\$1 = \$2$\backslash$$\backslash$$\backslash$n}, de forma que la query ya quedaría como:
-
-\begin{lstlisting}[language=scala]
-test = data\
-	.withColumn(...)\
-	.filter(...)\
-\end{lstlisting}
-
-
-\textbf{Traducción de listas, secuencias y arrays}
-
-Lo siguiente que querríamos cambiar son las listas, secuencias y arrays por arrays de Python. Estas se usan por ejemplo en las intersecciones para denominar las columnas que queremos que coincidan, o para establecer filtros que luego usamos en \texttt{isInCollection}, o \texttt{isin} en PySpark. 
-
-Esta expresión regular es la más larga de todas, ya que debemos distinguir entre listas de \texttt{String} y listas de otro tipo de datos. Esto es así ya que el delimitador de fin de lista es el paréntesis cerrado, indicando que ya no va a haber ningún elemento más, pero es posible que en una lista de \texttt{String} uno de los elementos contenga este carácter.
-
-La expresión regular es la siguiente:
-
-\begin{Verbatim}[fontsize=\scriptsize,frame=single]
-((\bList\b)|(\bSeq\b)|(\bArray\b))\((([ |\n]*"[^\n"]*"([ |\n]*,[ |\n]*"[^\n"]*"[ |\n]*)*)|
-([ |\n]*[^\n"\)]*([ |\n]*,[ |\n]*"[^\n"]*"[ |\n]*)*))\)
-\end{Verbatim}
-
-Y la podemos sustituir por \texttt{[\$5]}
-
-
-\textbf{Traducción de Mapas}
-
-De forma similar, debemos cambiar los \texttt{Map} a diccionarios. Para ello buscamos detectar los contenidos del mapa como tales y envolverlos entre llaves. Esto lo podemos hacer con la siguiente expresión:
-
-\begin{lstlisting}
-\bMap\b\((([ |\n]*[^\n]*,[ |\n]*)*[^\n\.]*)\)
-\end{lstlisting}
-
-Y lo que detecte lo sustituimos por \texttt{$\lbrace$\$1$\rbrace$}.
-
-Después sustituimos los caracteres \texttt{->} por \texttt{:} y, por último, tenemos que tener en cuenta que hay algunos mapas que tienen valores por defecto en caso de que no se encuentre la clave. Estos se distinguen añadiendo \texttt{.withDefaultValue()} y pasando como argumento el valor por defecto. En Python sin embargo, este tipo de diccionarios se crean de forma distinta, usando \texttt{defaultdict}.
-
-Para cambiar un valor por defecto por otro tendremos que detectar cuál es ese valor y hacer el cambio a la manera de implementarlo con Python. Primero detectamos este caso por defecto con:
-
-\begin{lstlisting}
-({[^}]*}).withDefaultValue\((.*)\)
-\end{lstlisting}
-
-Y sustituimos lo que detecte por:
-
-\begin{lstlisting}
-defaultdict(lambda:$2,$1)
-\end{lstlisting}
-
-
-\textbf{Otros ajustes menores}
-
-El siguiente paso es añadir un paréntesis después de \texttt{isNull} e \texttt{isNotNull}, lo cual haremos primero detectando estos casos con:
-
-\begin{lstlisting}
-((\bisNull\b)|(\bisNotNull\b))([\\)| |,|\n])
-\end{lstlisting}
-
-Y que sustituiremos por \texttt{\$1()\$4}
-
-A la hora de hacer una intersección, es común encontrar una expresión como:
-
-\begin{lstlisting}
-col("colName") === otherDf("otherCol")
-\end{lstlisting}
-
-La forma para denominar una columna de un DataFrame que se observa en la segunda parte de la comparación no está permitida en Python, y por tanto debemos cambiarla a otra como:
-
-\texttt{otherDf.otherCol}
-
-Como este tipo de denominación se suele dar en intersecciones a la hora de establecer la comparación, podemos usar una expresión regular como la siguiente para detectarlos:
-
-\begin{lstlisting}
-(.join\(.*== )((.*)\("(.*)"\)),
-\end{lstlisting}
-
-Que sustituiremos por \texttt{\$1\$3.\$4,}.
-
-Con este conjunto de sustituciones directas y expresiones regulares ya tenemos cubierta una gran parte del código que nos podamos encontrar a la hora de crear queries básicas. Cierto es que dentro de todas las opciones que nos ofrece Spark se cubren casos muy limitados, pero si se avanzase en el tema de las expresiones regulares quizá fuese posible cubrir la gran mayoría del código que se puede desarrollar en Scala Spark. A continuación se muestran algunas de las limitaciones nos encontraríamos, es decir, código que se puede hacer en Scala Spark que no se puede traducir directamente a PySpark, sino que requeriría una parte de interpretación, análisis de la funcionalidad y replicado de la misma.
-
-
-\subsubsection{Funcionalidad con implementaciones distintas}
+\textbf{Funcionalidad con implementaciones distintas}
 
 En Spark existe una función llamada \texttt{lit} que dado un valor de entrada de cualquier tipo nos devuelve una cuyas entradas contienen únicamente ese valor. En Scala Spark también existe una función llamada \texttt{typedLit}, que permite hacer lo mismo para tipos complejos como listas o mapas. Resultan útiles en el caso de que queramos aplicar un mapa a una columna, ya que le pasaríamos una columna de entrada como parámetro y devolvería otra con todos los valores mapeados. 
 
@@ -1848,31 +1645,31 @@ El problema a la hora de migrar código a PySpark es que esta función no existe
 Mientras que el código para Scala Spark se vería así:
 
 \begin{lstlisting}
-val mySparkMap = typedLit(Map(...))
-
-...
-.withColumn("mapeada", mySparkMap(col("input")))
+	val mySparkMap = typedLit(Map(...))
+	
+	...
+	.withColumn("mapeada", mySparkMap(col("input")))
 \end{lstlisting}
 
 El código para implementar la misma funcionalidad sin usar UDFs sería el siguiente:
 
 \begin{lstlisting}
-from pyspark.sql.functions import col, create_map, lit
-from itertools import chain
-
-myPythonDict = {...}
-
-mapping_expr = create_map([lit(x) for x in chain(*myPythonDict.items())])
-
-...
-.withColumn("value", mapping_expr.getItem(col("clave")))
+	from pyspark.sql.functions import col, create_map, lit
+	from itertools import chain
+	
+	myPythonDict = {...}
+	
+	mapping_expr = create_map([lit(x) for x in chain(*myPythonDict.items())])
+	
+	...
+	.withColumn("value", mapping_expr.getItem(col("clave")))
 \end{lstlisting}
 
 Como se puede observar, hay que hacer algún paso extra, pero más importante que eso es que dependemos de otro paquete externo a Spark. Además, el uso del \texttt{mapping$\_$expr} cambia ligeramente entre las versiones 2 y 3 de Spark, y por lo tanto es otra cosa más que tener en cuenta a la hora de migrar una versión a otra.
 
-\subsubsection{Funciones concretas con declaraciones distintas}
+\textbf{Funciones concretas con declaraciones distintas}
 
-Se ha observado que algunas funciones de DataFrame que están declaradas de una manera en Scala Spark no lo están de la misma forma en PySpark. Un ejemplo de ello es la función \texttt{na.replace}, que en el caso de la API de Scala puede recibir como primer argumento un valor por el que serán sustituidos los nulos y como segundo argumento una lista de columnas a tener en cuenta.
+Se ha observado que algunas funciones de \texttt{DataFrame} que están declaradas de una manera en Scala Spark no lo están de la misma forma en PySpark. Un ejemplo de ello es la función \texttt{na.replace}, que en el caso de la API de Scala puede recibir como primer argumento un valor por el que serán sustituidos los nulos y como segundo argumento una lista de columnas a tener en cuenta.
 
 En la API de Python estos dos argumentos se invierten: primero recibimos las columnas a tener en cuenta y después el valor que sustituirá los nulos.
 
@@ -1880,7 +1677,82 @@ Visto este caso podemos llegar a preguntarnos qué otras funciones siguen este p
 
 Además, también existe el caso de que tengamos funciones en una API que no existan en la otra, como es el caso de \texttt{replace}, que está en PySpark pero no en Scala Spark.
 
-Por estos motivo considero que crear una serie de expresiones regulares generalizadas para migrar código entre APIs, y que merecería un TFG de por sí.
+Con todos estos cambios mencionados podrían cubrirse la mayoría de queries sencillas que nos encontremos.
+
+\subsection{Expresiones regulares para facilitar la migración}
+
+En esta sección vamos a hablar de una herramienta que puede facilitar mucho la migración de queries entre APIs. Estoy hablando de ciertas expresiones regulares que potencialmente nos ahorrarían una cantidad considerable de tiempo en el caso de que tuviéramos que migrar queries muy grandes. A pesar de que nos pueden facilitar la experiencia para labores repetitivas como añadir el prefijo \texttt{F.} a cada función de columna, hay ciertos aspectos que seguirán requiriendo intervención manual, como los que comentaremos más adelante.
+
+Se tratarán los siguientes casos:
+
+\begin{compactitem}
+	\item Sustituciones directas.
+	\item Estandarización de las invocaciones a \texttt{col}.
+	\item Añadir \texttt{F.} a las funciones de columna.
+	\item Corregir las invocaciones a los tipos de Spark.
+	\item Añadir paréntesis a condiciones compuestas.
+	\item Eliminación de \texttt{val} y \texttt{var}.
+	\item Añadir el carácter \texttt{\symbol{92}} al final de cada línea.
+	\item Traducción de listas, secuencias y arrays.
+	\item Traducción de Mapas.
+	\item Otros ajustes menores.
+\end{compactitem}
+
+Al no disponer de todo el espacio que quisiera, se van a explicar las dos más interesantes y dejaremos el resto para el apéndice \ref{sec:regexplained}. Todas ellas se desarrollarán con el comando \texttt{sed} en mente, que utiliza el estándar POSIX ERE \footnote{\url{shorturl.at/pvyDL}}, salvo dos de ellas, que veremos en sus respectivos apartados.
+
+\subsubsection{Añadir \texttt{F.} a las funciones de columna}
+
+Como hemos visto ya, a la hora de importar las funciones de Spark en un entorno de Python es necesario usar un nombre concreto ya que algunas de estas tienen la misma denominación que otras que ya trae incorporadas Python, como podría ser el caso de \texttt{abs}. En este caso asumiremos que vamos a importar estas funciones de la siguiente manera:
+
+\begin{lstlisting}
+from pyspark.sql import functions as F
+\end{lstlisting}
+
+Con esto en mente, nuestro objetivo sería añadir dicho prefijo a todas las funciones que se hallen en nuestro código. Como no he encontrado ningún patrón por el que se rijan estas invocaciones como en otros casos, lo más sencillo será conseguir los nombres de todas las funciones disponibles y buscarlas con el operador OR en nuestra expresión regular. Esto lo podemos hacer de la siguiente manera desde una sesión de Python habiendo ya importado las funciones como se ha mostrado anteriormente:
+
+\begin{lstlisting}
+regex = "(" + "|".join(dir(F)[30:]) +  ")\("
+\end{lstlisting}
+
+La función \texttt{dir} lista los contenidos de un paquete en este caso, y necesitamos descartar los 30 primeros elementos ya que no se trata de funciones como tal. Entendido esto, esta expresión regular la podemos imprimir por pantalla y guardarla para aplicar cuando la necesitemos fuera de Python.
+
+En nuestro caso, lo que detecte esta expresión regular lo sustituiremos por \texttt{F.\symbol{92}1(}.
+
+\subsubsection{Adición del carácter \texttt{\symbol{92}} al final de cada línea}
+
+La siguiente tarea será añadir el carácter \texttt{\symbol{92}} al final de cada línea de la query. Para esto utilizaremos dos expresiones regulares. La primera de ellas detectará como línea de query aquella que tenga un cierre de paréntesis y una nueva línea, y la segunda actuará cuando tengamos una asignación de un \texttt{DataFrame} a otro seguido de las operaciones pertinentes.
+
+Para ilustrar este caso, pongamos que tenemos la siguiente query, donde ya hemos aplicado algunas de nuestras expresiones regulares:
+
+\begin{lstlisting}
+test = data
+	.withColumn(...)
+	.filter(...)
+\end{lstlisting}
+
+Si aplicamos la expresión regular \texttt{(\symbol{92}))\$}, que nos detecta el cierre de paréntesis y el fin de línea, y sustituimos por \texttt{\symbol{92}1\symbol{92}\symbol{92}}, la query quedaría tal que:
+
+\begin{lstlisting}
+test = data
+	.withColumn(...)\
+	.filter(...)\
+\end{lstlisting}
+
+Sin embargo, esto seguirá lanzando un error, ya que también deberíamos añadir dicho carácter en la primera línea. Para ello detectamos cuando tengamos una asignación con \texttt{([a-zA-Z0-9\symbol{45}\_]*) = ([a-zA-Z0-9\symbol{45}\_]*)\$}
+, podemos sustituir por \texttt{\symbol{92}1 = \symbol{92}2\symbol{92}\symbol{92}}, de forma que la query ya quedaría como:
+
+\begin{lstlisting}[language=scala]
+test = data\
+	.withColumn(...)\
+	.filter(...)\
+\end{lstlisting}
+
+Esta última expresión detecta cualquier variable asignada a otra, de forma que si nuestro código contiene asignaciones normales u operaciones que no utilicen Spark también se verán afectadas.
+
+Con el conjunto de sustituciones directas y expresiones regulares desarrolladas ya tenemos cubierta una gran parte del código que nos podamos encontrar a la hora de crear queries básicas. Cierto es que dentro de todas las opciones que nos ofrece Spark se cubren casos muy limitados, pero si se avanzase en el tema de las expresiones regulares quizá fuese posible cubrir la gran mayoría del código que se puede desarrollar en Scala Spark. A continuación se muestran algunas de las limitaciones nos encontraríamos, es decir, código que no se puede traducir directamente y que requeriría una parte de interpretación, análisis de la funcionalidad y replicado de la misma.
+
+
+
 
 \subsubsection{Limitaciones de las expresiones regulares}
 
@@ -1901,51 +1773,85 @@ Como se comentó anteriormente, es posible intercalar comentarios y líneas en b
 		.join(races, "raceId")
 \end{lstlisting}
 
-Es decir, buscamos detectar comentarios y \quotes{partir} la query en dos. Para ello, necesitamos guardar el nombre del DataFrame, detectar el código hasta un comentario y el comentario en sí, y estos dos N veces. Esto lo podemos hacer con la siguiente expresión:
+Es decir, buscamos detectar comentarios y \quotes{partir} la query en dos. Para ello, necesitamos guardar el nombre del \texttt{DataFrame}, detectar el código hasta un comentario y el comentario en sí, y estos dos N veces. Esto lo podemos hacer con la siguiente expresión:
 
 \begin{lstlisting}
 ([^ ]*) = ([^\#]*)([^\n]*)([^\#]*)
 \end{lstlisting}
 
-Sin embargo, esto solo cubre el código hasta el segundo comentario, sin incluir. Para cubrir más casos necesitaríamos o bien copiar varias veces los dos últimos grupos de captura o los dos primeros. La tercera opción sería cubrir uno de estas dos opciones que menciono con un \texttt{*}, para indicar que se repite N veces, pero entonces nos topamos con el siguiente problema: ¿Hasta dónde vamos a llegar? Tenemos que recordar que para sustituir necesitamos indicar los grupos de captura y el orden en el que los queremos. Si tenemos una query muy larga con muchos comentarios intercalados, nuestra expresión regular detectará cada uno de esos casos, y tendremos que hacer una expresión regular de sustitución individual al caso. En resumen: no se puede estandarizar, ya que podemos tener N comentarios intercalados.
+Sin embargo, esto solo cubre el código hasta el segundo comentario, sin incluir. Para cubrir más casos necesitaríamos o bien copiar varias veces los dos últimos grupos de captura o los dos primeros. La tercera opción sería cubrir uno de estas dos opciones que menciono con un \texttt{*}, para indicar que se repite N veces, pero entonces nos topamos con el siguiente problema: ¿Hasta dónde vamos a llegar? Tenemos que recordar que para sustituir necesitamos indicar los grupos de captura y el orden en el que los queremos. Si tenemos una query muy larga con muchos comentarios intercalados, nuestra expresión regular detectará cada uno de esos casos, y tendremos que hacer una expresión regular de sustitución individual al caso. En resumen: no se puede estandarizar usando el estándar que estamos utilizando, ya que podemos tener N comentarios intercalados.
 
-\textbf{Añadir paréntesis a condiciones}
+\subsubsection{Funciones definidas por el usuario}
 
-En Scala Spark es posible ejecutar el siguiente código sin problemas:
+Como es de suponer, estas expresiones regulares no pueden sustituir las UDFs que haya programado el usuario en Scala, ya que se trataría de una migración de lenguajes más que de APIs. Para migrar estas funciones tendríamos que hacerlo a mano, teniendo en cuenta la entrada, la salida y que proporcione la misma funcionalidad exacta que su contraparte. 
 
-\begin{lstlisting}
-dataframe
-	.when(col("a") === "foo" && col("b") =!= "bar", ...)
-\end{lstlisting}
+A la hora de realizar la migración de varias de las queries programadas hubo que hacer el cambio a mano de las UDFs que se utilizaron. Sin embargo, no resulta una tarea tan repetitiva como el resto de la migración, ya que se trata de un cambio de funciones individuales y requiere más concentración por parte de quien se encarga de ello.
 
-Sin embargo, en Python tenemos que separar cada condición con paréntesis, ya que el intérprete tratará de hacer la operación \quotes{bitwise} \texttt{\&} entre \texttt{"foo"} y \texttt{col("b")}, lo cual resultará en el siguiente código:
+Es por esto que no resultó tan arduo como el resto de la migración, y de hecho fue una manera de descansar y aprender más sobre ambos lenguajes fuera de Spark.
 
-\begin{lstlisting}
-dataframe
-	.when((col("a") === "foo") & (col("b") =!= "bar"), ...)
-\end{lstlisting}
+\subsection{Automatización de la migración}
 
-Al ser algo repetitivo, lo ideal sería poder diseñar una expresión regular que se encargase de ello, sin embargo el problema es el mismo que teníamos antes: ¿Cuántas condiciones individuales, separadas por operadores lógicos podemos tener en un \texttt{when}?. En principio podríamos intentar detectar condiciones con una expresión como:
+Vamos a ver ahora cómo podríamos automatizar el proceso. Hasta el momento tendríamos que haber aplicado estas expresiones regulares manualmente utilizando alguna herramienta como Visual Studio Code, que nos permite utilizar estas expresiones regulares con sustitución haciendo cambios mínimos a las desarrolladas, ya que usa un estándar distinto. Sin embargo, sigue resultando una tarea ciertamente repetitiva, especialmente si tenemos varias queries que migrar. Por ello se ha desarrollado un \textit{script} que se encargará de aplicarlas secuencialmente por nosotros. Los detalles más importantes sobre este \textit{script} los comentaremos a continuación, mientras que otros aspectos a destacar se han explicado en el apéndice \ref{apendicescript}.
+
+Consiste principalmente en el uso del comando \texttt{sed}, que nos permite aplicar expresiones regulares a \textit{streams} de texto o archivos. Esta segunda opción es la que nos interesaría. Podemos ejecutar en nuestra \textit{shell} un comando como el que se muestra a continuación para sustituir todas las apariciones de la palabra \quotes{null} por \quotes{None}, su homólogo en Python:
 
 \begin{lstlisting}
-.when\([ |\n]*([^ ]*)([ |\n]*(\|\|)[ |\n]*([^ ]*))+?(?=,)
+sed -E 's/null/None/g' <filename>
 \end{lstlisting}
 
-Pero de nuevo nos vemos limitados por el número de condiciones y, de nuevo, no podemos estandarizar una expresión regular que sustituya N parámetros.
+Podemos ver que se ejecuta con el \textit{flag} \texttt{-E}, que habilita las expresiones regulares extendidas y que el formato del comando interno de \texttt{sed} sigue el formato \texttt{s/<busca>/<sustituye>/g}. En este caso usamos \texttt{s} para sustituir y \texttt{g} al final para aplicar la expresión de forma global, para que se aplique en todo el archivo y no solo en la primera aparición de nuestro patrón.
 
-La única opción que nos queda sería hacer una expresión regular que detecte las condiciones individuales y usar el modo global de \textit{match}, de forma que detecte todas las apariciones en el texto y no solo una por línea.
+Con esto visto podemos dar el siguiente paso: utilizar los \textit{script} propios de \texttt{sed}. Estos nos permiten definir todas las operaciones que queremos realizar de forma secuencial en un archivo. Para usarlos debemos usar el \textit{flag} \texttt{-f} y proporcionar a continuación el archivo con nuestras operaciones.
 
-La expresión quedaría tal que:
+Por último, podemos proporcionar a \texttt{sed} el archivo sobre el que operar y nos devolverá un \textit{stream} de texto que podemos redirigir a un archivo. Un ejemplo de uso de este mandato con todas las opciones ya definidas podría ser el siguiente:
+
+\texttt{sed -E -f sedscript.sed inputfile > outputfile}
+
+Si en el \textit{script} añadimos todas las expresiones desarrolladas y sus respectivas sustituciones en el formato de operación de \texttt{sed}, podremos automatizar ya gran parte del proceso.
+
+Sin embargo, existen tres excepciones a esto: la declaración de mapas y listas y la gestión de librerías importadas. 
+
+Las primeras nos resultan un problema debido a que pueden declararse en varias líneas. Por ello, utilizar las expresiones regulares extendidas de \texttt{sed} no resultará suficiente para estos casos, ya que no es posible diferenciar el carácter de retorno de carro. Es por esto que, en estos dos casos concretos se va a utilizar \texttt{perl}, como ya se describió en sus respectivos apartados. Si primero nos encargamos de estos casos y luego redirigimos la entrada al mandato \texttt{sed} que hemos explicado sí podremos podremos tratar de todos los casos que hemos descrito.
+
+La gestión de librerías importadas resultan no triviales. En este caso, en lugar de sustituir usando expresiones regulares, vamos a añadir las librerías de PySpark a mano y a eliminar las de Scala. Para añadir las nuevas podemos usar la siguiente instrucción a nuestro \textit{script} de \texttt{sed}:
+
+\texttt{1i <texto a añadir>}
+
+Esto nos añadirá en la primera línea lo que deseemos. Nos gustaría añadir todas las dependencias que podamos encontrar en nuestro código. Para simplificar, importaremos la \texttt{SparkSession}, \texttt{Window} para hacer operaciones de ventana, los tipos de Spark y las funciones. Estos dos nos interesa que reciban el nombre de \texttt{T} y \texttt{F}, así que añadiéndolos nosotros podemos asegurar de que al ejecutar el código resultante no dará error al no encontrar las funciones o tipos si se han importado con otros nombres.
+
+De forma similar, \texttt{sed} nos proporciona una forma de eliminar líneas que sigan un patrón definido por una expresión regular. En nuestro caso nos interesa deshacernos de todas las librerías de Spark, que siguen el formato \texttt{org.apache.spark.<paquete>}. Al ser un patrón común, no es difícil encontrar una expresión que los detecte. También nos interesaría deshacernos de los implícitos de Spark, que siguen un patrón tal que \texttt{<nombre del SparkSession>.<paquete>}. Como no podemos adivinar qué nombre le ha dado el usuario a su \texttt{SparkSession}, asumiremos que lo habrá llamado \quotes{\texttt{spark}}.
+
+Para eliminarlos por lo tanto añadiremos a nuestro \textit{script} de \texttt{sed} las siguientes líneas:
+
+\texttt{/import org\symbol{92}.apache\symbol{92}.spark\symbol{92}.*/d}
+
+\texttt{/import spark\symbol{92}.*/d}
+
+Nótese que con el \texttt{d} final le estamos diciendo que elimine la línea.
+
+Por último deberíamos tener también en cuenta que el \texttt{SparkSession} se declara de forma ligeramente diferente. En Scala primero haríamos:
 
 \begin{lstlisting}
-([^\||&|]*)(\||&|\))
+val spark = SparkSession
+	.builder()
+	...
 \end{lstlisting}
 
-Y sustituiríamos los con:
+Mientras que en PySpark hacemos:
 
 \begin{lstlisting}
-($1)$2
+spark = SparkSession.builder\
+	...
 \end{lstlisting}
+
+Para arreglar esto lo más fácil es eliminar la línea que contiene el \texttt{.builder()} y sustituir \texttt{SparkSession} por \texttt{SparkSession.builder}.
+
+Habiendo visto esto, lo más cómodo es hacer un \textit{script} de \textit{shell} que se encargue de recoger el archivo de entrada, aplicar todas estas operaciones y escribir el resultado en otro archivo del mismo nombre pero con extensión \texttt{.py}. Además de esto, ya que es posible que en la última línea del \textit{script} de Python tengamos un \texttt{\symbol{92}}, tenemos que asegurarnos de dejar una línea extra. Esto lo hacemos con:
+
+\texttt{printf "\symbol{92}n\symbol{92}n" >> outputfile}
+
+Siendo este el último paso que realizará nuestro \textit{script}, podemos ver que, si le proporcionamos un archivo de entrada con código de Scala Spark nos creará otro con el equivalente en PySpark y el mismo nombre.
+
 
 \section{Uso de Plotly}
 \label{plotly}
@@ -2338,7 +2244,7 @@ En el siguiente capítulo elaboraré más estas conclusiones.
 
 En este trabajo hemos visto cómo se usa la API de Spark tanto en Scala como Python y hemos usado ambas para resolver cuestiones relacionadas con el dominio de la Fórmula 1. Tras obtener los resultados, estos han sido analizados con ayuda de la librería Plotly, que nos ayudó a generar gráficos sencillos.
 
-También hemos visto cómo podemos migrar consultas de una API a otra, en este caso de Scala Spark a PySpark, ayudándonos de una serie de expresiones regulares para automatizar ligeramente la tarea.
+También hemos visto cómo podemos migrar consultas de una API a otra, en este caso de Scala Spark a PySpark, ayudándonos de una serie de expresiones regulares y aplicándolas de forma secuencial con un \textit{script} que automatiza esta tarea.
 
 Habiendo visto ya cómo se programa en ambas APIs, hemos pasado a analizar su rendimiento, y nos hemos encontrado con que el conjunto de datos que hemos usado para las consultas es demasiado pequeño y no utiliza todo el potencial que nos brinda Spark. Hemos visto también cómo el campo que utilicemos para particionar una tabla de entrada puede afectar al rendimiento.
 
@@ -2346,7 +2252,7 @@ Tras esto, hemos utilizado un conjunto de datos más grande y hemos visto que lo
 
 Spark es una librería que permite acceder a fuentes de datos y realizar procesamiento tanto en paralelo en la misma máquina como de forma distribuida entre distintos nodos, y cuanto más grande sea la entrada y los datos que se manejan, más beneficio se saca a esta API. Quizá al tratarse de un conjunto de datos tan pequeño hubiese resultado más eficiente usar una librería como Pandas, que aunque no realice tantas optimizaciones como Spark resulta menos pesado y hubiese resultado en procesos más eficientes.
 
-Sin embargo, para entornos en los que se manejan cantidades muy grandes de datos creo que Spark es la mejor opción, ya que las opciones que proporciona a la hora de paralelizar los procesos y distribuir el trabajo entre varios nodos resulta muy interesante si se tiene la infraestructura necesaria para darle uso.
+Sin embargo, para entornos en los que se manejan cantidades muy grandes de datos creo que Spark sería la mejor opción, ya que las opciones que proporciona a la hora de paralelizar los procesos y distribuir el trabajo entre varios nodos resulta muy interesante si se tiene la infraestructura necesaria para darle uso.
 
 Como hemos visto, la diferencia de rendimiento entre ambas API resulta prácticamente nula cuando se usan tamaños de entrada en el orden de Gigabytes, y sospecho que cuanto más grande sea el tamaño de entrada la diferencia será aún menor si es posible. Un punto clave en el que puede estar la diferencia entre ellas puede ser el uso de UDF ya que, aunque en las queries en las que las hemos usado no hemos notado diferencias notables, probablemente con una carga más grande de datos seguramente veamos que la balanza se inclina más a la API de Scala.
 
@@ -2358,13 +2264,15 @@ En resumidas cuentas, programar queries usando PySpark puede resultar un choque 
 
 Además, usando esta API en Scala disponemos de herramientas extra como las clases implícitas, que nos permiten extender la funcionalidad de clases como \texttt{DataFrame}, resultando así en un código más legible y limpio.
 
-Hablando de esto último, en mi opinión el código queda mucho más limpio si usamos la API de Scala. Al migrar queries de ella a PySpark hemos visto que es un proceso en el que se añaden caracteres y, en general, ruido al código. Hacer el camino inverso por tanto será un proceso de limpieza de código.
+Hablando de esto último, en mi opinión el código queda mucho más limpio si usamos la API de Scala. Al migrar queries de ella a PySpark hemos visto que es un proceso en el que se añaden caracteres y, en general, ruido al código. Hacer el camino inverso por tanto será un proceso de limpieza.
 
 Por estos motivos acababa usando Scala Spark en tareas secundarias. El código quedaba más limpio y me resultaba más rápido de desarrollar al no tener que preocuparme de añadir esos caracteres extra y centrándome en qué transformaciones quería hacer.
 
 Por esto último, en mi opinión, la API de Scala es mejor que la de Python. Quizá no hayamos visto que se ahorre mucho tiempo de ejecución, pero definitivamente ahorramos en tiempo de desarrollo.
 
 En general he disfrutado del desarrollo de este trabajo, a pesar de que ciertas etapas han podido resultar tediosas. En concreto las partes que más he disfrutado han sido la de la migración de queries y la comparativa final. La primera me ha permitido familiarizarme con la API de Python, ya que aunque el orden de este trabajo no lo refleje, se programaron todas las queries en Scala primero y una vez se vio que funcionaba y arrojaba los datos que se buscaban se migraron mediante el uso de las expresiones regulares. Esto también me permitió familiarizarme con ellas, ya que a pesar de haberlas visto a lo largo de la carrera nunca me fueron necesarias para el desarrollo de ninguna práctica, así que no pude afianzar las ideas.
+
+La parte de la automatización del proceso de migración también ha sido bastante útil ya que me ha permitido aprender más acerca de los distintos estándares de expresiones regulares que se han utilizado y cómo se podrían aplicar todas de forma automática mediante un \textit{script} de \textit{shell}.
 
 Por otro lado la comparativa me permitió indagar un poco más en cómo funciona Spark por dentro, mirar cómo afectan factores que van más allá de la programación de queries al rendimiento: ya sea el particionado de los datos y su formato o la cantidad de recursos de los que se dispone.
 
@@ -2374,16 +2282,15 @@ Finalmente, me gustaría comentar que he aprendido mucho con la realización de 
 
 \section{Trabajos futuros}
 
-A raíz de todo lo visto a lo largo de esta memoria quedan varios asuntos pendientes que se podrían desarrollar en trabajos futuros. Estos se describirán a continuación.
+A raíz de todo lo visto a lo largo de esta memoria quedan varios asuntos pendientes que se podrían desarrollar en trabajos futuros.
 
 Respecto a la comparativa, queda pendiente comparar ambas API con un conjunto de datos más grande, idealmente en las decenas o cientos de Gigabytes y varios nodos que utilicen todo el potencial de Spark. Hemos visto que los resultados se estabilizan cuando aumentamos el tamaño de los datos de entrada. Por ello y por lo que ya hemos comentado anteriormente, lo justo sería realizar una comparativa parecida a la ya realizada pero con un contexto en el que Spark funcione de forma óptima y en un entorno lo más parecido posible a los que se tuvieron en mente a la hora de su diseño.
 
-Por otro lado tendríamos automatizar la migración de queries mediante la utilización de las expresiones regulares diseñadas. Como ya comenté en el apartado dedicado a ello, quedan pendientes varias expresiones que quizá no sea posible implementar, pero sería relativamente sencillo programar un script de Bash que analice uno de Python y vaya aplicando las expresiones regulares ya vistas con sus correspondientes sustituciones usando \texttt{sed} y finalmente el archivo original quede sustituido por su homólogo de Scala.
 
 %Como hay partes que requieren de intervención manual, quizá se podría detectarlas y hacer que en el script se ejecute un \textit{parser} que vaya comprobando carácter por carácter, formando \quotes{oraciones}, si se puede hacer algo con ellas. El ejemplo que se me viene a la cabeza es el de añadir paréntesis a cada condición individual de una condición compuesta: quizá con una expresión regular no podamos añadirlos de golpe, pero si analizamos secuencialmente y separamos cada condición podríamos añadirlas sin mucho problema de forma similar a cómo funciona una máquina de Turing.
 
 
-Otra opción para automatizar estas migraciones sería buscar la forma de \quotes{importar} el Job de una instancia de Spark a otra. Esto puede ser posible porque, como ya hemos comentado, PySpark es un envoltorio sobre Spark, lo cual implica que los planes que genere una API deberían funcionar en otra. Sería una forma que requeriría más investigación por mi parte, pero proporcionaría una precisión perfecta al descartar el factor humano que siempre existe al realizar una migración manual.
+Por otro lado podríamos intentar automatizar la migración de queries \quotes{importando} el Job de una instancia de Spark a otra. Esto puede ser posible porque, como ya hemos comentado, PySpark es una interfaz de Spark al mismo nivel que la de Scala, lo cual implica que los planes que genere una API deberían funcionar en otra. Requeriría más investigación por mi parte, pero proporcionaría una precisión perfecta al descartar el factor humano que siempre existe al realizar una migración manual.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Bibliografía %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2903,7 +2810,7 @@ Con esto en mente, podemos contar el número de temporadas en las que ha dominad
 
 Calculada esta métrica, podemos pasar a calcular el resto. Para ello primero usamos la tabla \texttt{results} y filtramos los outliers intersecamos con la tabla \texttt{driverFilter}. Para llevar a cabo este filtrado, debemos hacer la intersección de tipo \texttt{leftanti}. También interseccionamos con la tabla \texttt{races} para obtener información sobre la temporada en la que se llevó a cabo cada carrera.
 
-Como las columnas \texttt{position} y \texttt{grid} son de tipo \texttt{String}, debemos cambiarlas a tipo entero y tratar los nulos en ambos casos. Esto último es importante, ya que al ordenar estas columnas los nulos quedan por encima del resto. Estos nulos aparecen debido a que no todas las entradas de esta columna contienen números. En el caso de que un piloto no haya terminado la carrera aparecerá un \quotes{\texttt{$\backslash$N}}.
+Como las columnas \texttt{position} y \texttt{grid} son de tipo \texttt{String}, debemos cambiarlas a tipo entero y tratar los nulos en ambos casos. Esto último es importante, ya que al ordenar estas columnas los nulos quedan por encima del resto. Estos nulos aparecen debido a que no todas las entradas de esta columna contienen números. En el caso de que un piloto no haya terminado la carrera aparecerá un \quotes{\texttt{\symbol{92}N}}.
 
 Para encargarnos de estos valores nulos, se puede usar la función \texttt{na.fill()}, que en este caso recibirá un diccionario cuya clave será un \texttt{String} que denote el nombre de la columna y el valor será el que queremos dar en caso de encontrar un nulo. Para este caso se ha decidido que los nulos se sustituyan por el valor \texttt{100}, ya que en ambos casos nunca ha habido una carrera con ese número de competidores, asegurando así que siempre aparecerá el último si quisiéramos ordenar de menor a mayor.
 
@@ -3082,11 +2989,233 @@ return results\
 
 Además, creamos una columna que clasifique la columna \texttt{stats} de menor a mayor y ordenamos el \texttt{DataFrame} y ya por último completamos la información del piloto, en este caso nombre y apellido, interseccionando con el \texttt{DataFrame} \texttt{driverInfo}.
 
+\chapter{Migración de queries}
+
+\section{Expresiones regulares}
+\label{sec:regexplained}
+
+\textbf{Sustituciones Directas}
+
+Estas sustituciones son aquellas no requieren del uso de expresiones regulares complejas. Un ejemplo de sustitución de este tipo serían los operadores \texttt{===} y \texttt{=!=}. Simplemente podríamos sustituirlos por su variante de Python comentada anteriormente. Otros ejemplos incluyen:
+
+\begin{compactitem}
+	\item Comentarios de una sola línea: de \texttt{//} a \texttt{\#}.
+	\item Valores nulos: \texttt{null} a \texttt{None}.
+	\item Valores booleanos: \texttt{true} a \texttt{True} y \texttt{false} a \texttt{False}.
+	\item Descriptores de orden para ventanas: \texttt{desc} a \texttt{desc()} y \texttt{asc} a \texttt{asc()}
+	\item La función \texttt{isInCollection} pasa a \texttt{isin}
+\end{compactitem}
+
+\textbf{Estandarización de las invocaciones a \texttt{col}}
+
+Una vez hemos terminado con estas sustituciones sencillas, podemos empezar a aprovechar la potencia de las expresiones regulares. Una de las consecuencias de utilizar estas herramientas será que acabaremos con un código estandarizado. Por ejemplo, en Scala Spark es posible invocar una columna de las siguientes maneras si importamos los implícitos de Spark:
+
+\begin{lstlisting}
+	import spark.implicits._
+	
+	col("colName")
+	$"colName"
+	'colName
+\end{lstlisting}
+
+Mientras que en Python podemos hacerlo de las siguientes formas:
+
+\begin{lstlisting}
+	import pyspark.sql.functions as F
+	
+	F.col("colName")
+	dataframe.colName
+\end{lstlisting}
+
+Como para ambas API podemos usar la función \texttt{col}, entonces nos interesaría transformar las otras dos maneras de invocar columnas a esta. Para ello podemos usar las siguientes expresiones regulares:
+\begin{compactitem}
+	\item Con \texttt{[\$]([\symbol{94} ]*)} detectamos el primer caso, y lo sustituimos por \texttt{col(\symbol{92}1)}
+	\item Con \texttt{[\symbol{92}']([a-zA-Z0-9]*))} detectamos el segundo y sustituimos por \texttt{col(\symbol{92}"\symbol{92}1\symbol{92}")}
+\end{compactitem}
+
+\textbf{Corregir las invocaciones a los tipos de Spark}
+
+Lo siguiente será añadir el prefijo \texttt{T.} y los paréntesis a los tipos de Spark. En esta ocasión no fui capaz de listarlos como en el caso anterior y se hizo a mano, pero la idea sigue siendo colocar un operador OR entre cada elemento posible, todo rodeado por paréntesis.
+
+Esta expresión regular luego la sustituiríamos por T.\symbol{92}1().
+
+
+\textbf{Eliminación de \texttt{val} y \texttt{var}}
+
+Lo siguiente será eliminar los \texttt{var} y \texttt{val} de las declaraciones, lo cual podemos conseguir mediante la siguiente expresión regular:
+
+\texttt{(val|var)[ ]+}
+
+Todo lo que detecte deberá ser sustituido por la cadena vacía, esencialmente eliminándolos. Cabe destacar que en el caso de que tengamos funciones definidas como \texttt{val}, se necesitará intervención manual como comentaremos más adelante.
+
+\textbf{Traducción de listas, secuencias y arrays}
+
+Lo siguiente que querríamos cambiar son las listas, secuencias y arrays por arrays de Python. Estas se usan por ejemplo en las intersecciones para denominar las columnas que queremos que coincidan, o para establecer filtros que luego usamos en \texttt{isInCollection}, o \texttt{isin} en PySpark. 
+
+Esta expresión regular es la más larga de todas, ya que debemos distinguir entre listas de \texttt{String} y listas de otro tipo de datos. Esto es así ya que el delimitador de fin de lista es el paréntesis cerrado, indicando que ya no va a haber ningún elemento más, pero es posible que en una lista de \texttt{String} uno de los elementos contenga este carácter.
+
+La expresión regular es la siguiente:
+
+\begin{Verbatim}[fontsize=\scriptsize,frame=single]
+((\bList\b)|(\bSeq\b)|(\bArray\b))\((([ |\n]*"[^\n"]*"([ |\n]*,[ |\n]*"[^\n"]*"[ |\n]*)*)|
+	([ |\n]*[^\n"\)]*([ |\n]*,[ |\n]*"[^\n"]*"[ |\n]*)*))\)
+\end{Verbatim}
+
+Y la podemos sustituir por \texttt{[\symbol{92}5]}
+
+Cabe destacar que tanto esta como la siguiente expresión no la podemos utilizar en \texttt{sed}, debido a que es posible encontrarnos con que tanto mapas como listas estén definidas en varias líneas y \texttt{sed} no es capaz de detectar el carácter de retorno de carro. Es por esto que sebe utilizar \texttt{perl} como para aplicar nuestras expresiones regulares. Lo haríamos de la siguiente manera:
+
+\texttt{perl -007 -pe 's/<regex>/<sustitución>/sg' <archivo de entrada>}
+
+Perl nos permite usar expresiones regulares no codiciosas, de forma que en el caso de querer detectar únicamente hasta la primera aparición de cierto carácter, sería posible. Esto nos será útil en la siguiente tarea.
+
+
+\textbf{Traducción de Mapas}
+
+De forma similar, debemos cambiar los \texttt{Map} a diccionarios. Para ello buscamos detectar los contenidos del mapa como tales y envolverlos entre llaves. Esto lo podemos hacer con la siguiente expresión:
+
+\begin{lstlisting}
+Map\((.*?)\)
+\end{lstlisting}
+
+Y lo que detecte lo sustituimos por \texttt{$\lbrace$\$1$\rbrace$}.
+
+Después sustituimos los caracteres \texttt{->} por \texttt{:} y, por último, tenemos que tener en cuenta que hay algunos mapas que tienen valores por defecto en caso de que no se encuentre la clave. Estos se distinguen añadiendo \texttt{.withDefaultValue()} y pasando como argumento el valor por defecto. En Python sin embargo, este tipo de diccionarios se crean de forma distinta, usando \texttt{defaultdict}.
+
+Para cambiar un valor por defecto por otro tendremos que detectar cuál es ese valor y hacer el cambio a la manera de implementarlo con Python. Primero detectamos este caso por defecto con:
+
+\begin{lstlisting}
+({.*?}).withDefaultValue\((.*?)\)
+\end{lstlisting}
+
+Y sustituimos lo que detecte por:
+
+\begin{lstlisting}
+defaultdict(lambda:$2,$1)
+\end{lstlisting}
+
+Como hemos visto, se ha utilizado el carácter \texttt{?} dentro de las expresiones regulares, que viene a significar \quotes{hasta la siguiente aparición del carácter que defino a continuación}, seguido del carácter límite. Este nos permite evaluar de forma no codiciosa, quedándonos en la primera aparición del carácter que deseemos que se encuentre a continuación.
+
+
+\textbf{Otros ajustes menores}
+
+El siguiente paso es añadir un paréntesis después de \texttt{isNull} e \texttt{isNotNull}, lo cual haremos primero detectando estos casos con:
+
+\begin{lstlisting}
+((\bisNull\b)|(\bisNotNull\b))([\)| |,|\n])
+\end{lstlisting}
+
+Y que sustituiremos por \texttt{\symbol{92}1()\symbol{92}4}
+
+A la hora de hacer una intersección, es común encontrar una expresión como:
+
+\begin{lstlisting}
+col("colName") === otherDf("otherCol")
+\end{lstlisting}
+
+La forma para denominar una columna de un DataFrame que se observa en la segunda parte de la comparación no está permitida en Python, y por tanto debemos cambiarla a otra como:
+
+\texttt{otherDf.otherCol}
+
+Como este tipo de denominación se suele dar en intersecciones a la hora de establecer la comparación, podemos usar una expresión regular como la siguiente para detectarlos:
+
+\begin{lstlisting}
+(.join\(.*== )((.*)\("(.*)"\)),
+\end{lstlisting}
+
+Que sustituiremos por \texttt{\symbol{92}1\symbol{92}3.\symbol{92}4,}.
+
+\textbf{Añadir paréntesis a condiciones}
+
+En Scala Spark es posible ejecutar el siguiente código sin problemas:
+
+\begin{lstlisting}
+dataframe
+	.when(col("a") === "foo" && col("b") =!= "bar", ...)
+\end{lstlisting}
+
+Sin embargo, en Python tenemos que separar cada condición con paréntesis, ya que el intérprete tratará de hacer la operación \quotes{bitwise} \texttt{\&} entre \texttt{"foo"} y \texttt{col("b")}, lo cual resultará en que tengamos que insertar cada condición entre paréntesis:
+
+\begin{lstlisting}
+dataframe
+	.when((col("a") === "foo") & (col("b") =!= "bar"), ...)
+\end{lstlisting}
+
+Al ser algo repetitivo, lo ideal sería poder diseñar una expresión regular que se encargase de ello, pero en este caso debemos hacerlo en dos partes si usamos \texttt{sed}: sustituir los operadores lógicos por su homólogo en Python de forma que tengamos ya colocados los paréntesis interiores y añadir los paréntesis exteriores.
+
+Lo primero lo podemos hacer con las siguientes expresiones regulares:
+
+\begin{lstlisting}
+\&\&
+\|\|
+\end{lstlisting}
+
+Que sustituiremos por:
+
+\begin{lstlisting}
+) \& (
+) \| (
+\end{lstlisting}
+
+Por último, debemos añadir los paréntesis exteriores. Como podemos encontrarnos condiciones tanto en \texttt{where} como en \texttt{when}, debemos distinguir entre los dos casos ya que para cada uno el delimitador exterior es distinto. En el primero es el cierre de paréntesis y en el segundo la coma. Aún con eso, las expresiones quedan muy similares como se puede ver a continuación:
+
+\begin{lstlisting}
+(\bwhere\b)\( *(.*(\&|\|).*) *[\)\\]
+(\bwhen\b)\( *(.*(\&|\|).*) *,
+\end{lstlisting}
+
+Y sustituiremos, respectivamente, según los patrones:
+
+\begin{lstlisting}
+\1((\2)\\
+\1((\2),
+\end{lstlisting}
+
+Donde podemos apreciar con más claridad que el único cambio es el delimitador de fin de condición.
+
+\section{Desarrollo del \textit{script}}
+\label{apendicescript}
+
+En este apartado vamos a entrar más en el detalle de cómo ha sido la implementación del \textit{script} de automatización de la migración y aspectos que se han tenido en cuenta a la hora de desarrollarlo.
+
+Como ya hemos comentado, gran parte de esta automatización se hace a través del comando \texttt{sed}. Este nos permite aplicar expresiones regulares y hacer sustituciones con los patrones detectados. Utiliza el estándar POSIX ERE y presenta algunas limitaciones que tendremos que sortear, como la incapacidad de detectar el carácter de retorno de carro.
+
+La idea inicial para automatizar el proceso consistía en concatenar mandatos que aplicasen cada uno una expresión regular, pero indagando en el manual de \texttt{sed}, con \texttt{info sed} y \texttt{man sed} se vio la posibilidad de aplicar todas nuestras expresiones de golpe mediante el uso de un \textit{script} de \texttt{sed}.
+
+Este nos permite crear un archivo de texto en el que colocaremos todas las instrucciones que queremos que se lleven a cabo sobre nuestro \textit{stream} de texto o archivo en orden secuencial. También permite insertar comentarios y líneas en blanco, que son muy útiles para facilitar la lectura y que el usuario pueda comprender qué está pasando.
+
+El orden en el que se aplican las instrucciones depende de las dependencias que existan entre ellas. Por ejemplo, no podemos primero añadir el \texttt{F.} y luego estandarizar las llamadas a las columnas. Por norma general existen pocas dependencias de este tipo, pero las que existen se han tenido en cuenta a la hora de establecer el orden de aplicación. El archivo completo se puede consultar en el repositorio de Github asociado al proyecto \footnote{\url{https://github.com/nipsn/Spark-TFG/blob/main/autoregex/scriptfile.sed}}.
+
+Otro aspecto a tener en cuenta es la aplicación de algunas expresiones regulares con Perl. Esto se ha hecho debido a que el estándar PCRE2 nos proporciona la posibilidad de evaluar de forma no codiciosa, es decir, nos permite quedarnos con lo que deseemos hasta la primera aparición de cierto carácter y debido también a que podemos distinguir el carácter de retorno de carro. Esto ha sido esencial a la hora de desarrollar las expresiones para sustituir listas y mapas, ya que normalmente están definidas en varias líneas para mejorar la legibilidad.
+
+Un ejemplo de cómo se haría una sustitución con Perl sería el siguiente:
+
+\texttt{perl -0777 -pe 's/Map\symbol{92}((.*?)\symbol{92})/$\lbrace$\$1$\rbrace$/sg' filename}
+
+El manual de usuario de Perl nos dice que \texttt{-0777} hacer que Perl funcione en modo \quotes{\textit{slurp}}, lo cual quiere decir que traerá todo el archivo leído a memoria para aplicar las operaciones que deseemos. Las opciones \texttt{-pe} nos indica que coge un archivo y crea otro como la salida de lo que queramos aplicar. El resto se parece mucho a lo que hemos hecho ya con \texttt{sed}: primero le decimos que vamos a sustituir con \texttt{s/}, luego va la expresión regular, seguido de \texttt{/} y la expresión de sustitución y al final los modos en los que se va a aplicar, en este caso de forma global como viene siendo habitual. Por último tendremos el archivo del que leeremos los datos de entrada. Los datos de salida los redirigiremos o bien a otra operación de Perl, \texttt{sed} o al archivo de salida.
+
+Habiendo visto esto, podemos explicar el código del \textit{script} de \textit{shell} desarrollado que se encarga de todo esto. Es el siguiente:
+
+\begin{figure}[H]
+	\includegraphics[scale=0.3]{autoregexscript.png}
+	\centering
+	\caption{Código del script de automatización}
+	\label{fig:autoregex}
+	\centering
+\end{figure}
+
+Aquí podemos ver que lo primero que se hace es leer el nombre del archivo de entrada, dejando de lado la extensión. Después pasa ya a aplicar las expresiones regulares que se encargan de traducir listas y mapas a sus contrapartes en Python para pasar a aplicar todas las instrucciones que hemos definido en el \textit{script} de \texttt{sed} y escribir el resultado en un archivo con el mismo nombre de entrada pero extensión \texttt{.py}. Como último paso se añade una línea vacía al final para evitar problemas al ejecutar como ya se comentó en el apartado correspondiente de la memoria.
+
+Un aspecto importante a destacar de este \textit{script} es que es \quotes{POSIX compliant}, es decir, que cumple con todos los estándares de POSIX y se debe de poder ejecutar en cualquier \textit{shell} y sistema, ya sea OSX, BSD o Linux. Esto resulta interesante porque no limita al usuario a un sistema o \textit{shell} en concreto, como sí habría pasado si se hubiera desarrollado con \quotes{\textit{bashismos}}.
+
+Una herramienta clave a la hora de garantizar esta portabilidad ha sido \texttt{shellcheck}, que dispone tanto de versión de línea de comandos como web\footnote{\url{https://www.shellcheck.net/}}. Analiza el código y señala errores, y, en el caso de este \textit{script}, fue capaz de aplicar los ajustes necesarios para que garantizar lo que buscábamos.
+
+Además, como medida extra para asegurar la portabilidad del \textit{script}, se ha ejecutado en distintas \textit{shell}. En concreto se ha ejecutado en \texttt{bash}, \texttt{zsh} y, lo más importante, \texttt{posh}. \texttt{posh} es una \textit{shell} que se ajusta a las políticas POSIX. En el caso de que no consiguiésemos ejecutar nuestro \textit{script} en \texttt{posh}, tendríamos que revisar si existe algún error en la forma en la que está programado.
 
 \chapter{Resultados obtenidos}
 \label{sec:apendice2}
 
-\section{Piloto más consistente en un periodo concreto de tiempo}
+\section{Piloto más consistente en la temporada 2012}
 
 Con esta query el objetivo era averiguar qué piloto ha sido el más consistente en un periodo de tiempo determinado, en este caso la temporada 2012. Como ya explicamos anteriormente, hemos definido \quotes{consistencia} como la diferencia entre la media de las vueltas rápidas del piloto y la media de todas las vueltas dadas en todos los grandes premios de ese periodo.
 
