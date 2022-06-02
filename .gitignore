@@ -1,7 +1,7 @@
 /out
 /notebooks/.ipynb_checkpoints
 
-/code/scala-queries/.idea/
+/code
 
 
 *.iml
