@@ -2883,7 +2883,7 @@ Sin embargo, estas no son las únicas métricas que queremos calcular. Estamos i
 	\item Porcentaje de podios relativo al número de carreras en las que se ha participado.
 \end{compactitem}
 
-Primero, como viene siendo habitual, preparamos el DataFrame para los cálculos. Usamos la tabla \texttt{results} e interseccionamos con los DataFrames \texttt{driverDomination} según las columnas \texttt{driverId} y \texttt{year} y \texttt{teammateComparison} según la columna \texttt{driverId}. En ambos casos hacemos una intersección de tipo left. También interseccionamos con \texttt{races} para añadir información sobre la temporada en la que se ha disputado cada carrera.
+Primero, como viene siendo habitual, preparamos el \texttt{DataFrame} para los cálculos. Usamos la tabla \texttt{results} e interseccionamos con los \texttt{DataFrames} \texttt{driverDomination} según las columnas \texttt{driverId} y \texttt{year} y \texttt{teammateComparison} según la columna \texttt{driverId}. En ambos casos hacemos una intersección de tipo left. También interseccionamos con \texttt{races} para añadir información sobre la temporada en la que se ha disputado cada carrera.
 
 Por último hacemos la intersección con \texttt{driverFilter} tomando como referencia la columna \texttt{driverId}. Sin embargo, esta intersección se hará de tipo \quotes{leftanti}. Esto quiere decir que el DataFrame resultante contendrá todos los elementos que no estén en el que queremos interseccionar por la derecha.
 
@@ -2895,7 +2895,7 @@ Esta es una manera eficiente de hacer un filtro en Spark. Otra manera sería hac
 
 Sin embargo, hacer un \texttt{collect()} en Spark resulta muy costoso y por ello se ha optado por la primera opción.
 
-De nuevo tendremos que convertir a tipo entero las columnas \texttt{grid} y \texttt{position}. El código para preparar este DataFrame es el siguiente:
+De nuevo tendremos que convertir a tipo entero las columnas \texttt{grid} y \texttt{position}. El código para preparar este \texttt{DataFrame} es el siguiente:
 
 \begin{lstlisting}
 results =  results\
@@ -2972,11 +2972,11 @@ return results\
 	...
 	.withColumn("rankGridDom", F.rank().over(Window.orderBy(F.col("avgGridDom").desc())))\
 	.withColumn("stats", averageRank(
-	F.array(F.col("rankFRC"),
-	F.col("rankAGS"),
-	...
-	F.col("rankGridDom")
-	)
+		F.array(F.col("rankFRC"),
+			F.col("rankAGS"),
+			...
+			F.col("rankGridDom")
+		)
 	))\
 \end{lstlisting}
 
@@ -3004,20 +3004,20 @@ Estas sustituciones son aquellas no requieren del uso de expresiones regulares c
 Una vez hemos terminado con estas sustituciones sencillas, podemos empezar a aprovechar la potencia de las expresiones regulares. Una de las consecuencias de utilizar estas herramientas será que acabaremos con un código estandarizado. Por ejemplo, en Scala Spark es posible invocar una columna de las siguientes maneras si importamos los implícitos de Spark:
 
 \begin{lstlisting}
-	import spark.implicits._
+import spark.implicits._
 	
-	col("colName")
-	$"colName"
-	'colName
+col("colName")
+$"colName"
+'colName
 \end{lstlisting}
 
 Mientras que en Python podemos hacerlo de las siguientes formas:
 
 \begin{lstlisting}
-	import pyspark.sql.functions as F
+import pyspark.sql.functions as F
 	
-	F.col("colName")
-	dataframe.colName
+F.col("colName")
+dataframe.colName
 \end{lstlisting}
 
 Como para ambas API podemos usar la función \texttt{col}, entonces nos interesaría transformar las otras dos maneras de invocar columnas a esta. Para ello podemos usar las siguientes expresiones regulares:
@@ -3030,7 +3030,7 @@ Como para ambas API podemos usar la función \texttt{col}, entonces nos interesa
 
 Lo siguiente será añadir el prefijo \texttt{T.} y los paréntesis a los tipos de Spark. En esta ocasión no fui capaz de listarlos como en el caso anterior y se hizo a mano, pero la idea sigue siendo colocar un operador OR entre cada elemento posible, todo rodeado por paréntesis.
 
-Esta expresión regular luego la sustituiríamos por T.\symbol{92}1().
+Esta expresión regular luego la sustituiríamos por \texttt{T.\symbol{92}1()}.
 
 
 \textbf{Eliminación de \texttt{val} y \texttt{var}}
@@ -3059,6 +3059,8 @@ Y la podemos sustituir por \texttt{[\symbol{92}5]}
 Cabe destacar que tanto esta como la siguiente expresión no la podemos utilizar en \texttt{sed}, debido a que es posible encontrarnos con que tanto mapas como listas estén definidas en varias líneas y \texttt{sed} no es capaz de detectar el carácter de retorno de carro. Es por esto que sebe utilizar \texttt{perl} como para aplicar nuestras expresiones regulares. Lo haríamos de la siguiente manera:
 
 \texttt{perl -007 -pe 's/<regex>/<sustitución>/sg' <archivo de entrada>}
+
+Entramos más en detalle sobre Perl y el formato del mandato en el apéndice \ref{apendicescript}.
 
 Perl nos permite usar expresiones regulares no codiciosas, de forma que en el caso de querer detectar únicamente hasta la primera aparición de cierto carácter, sería posible. Esto nos será útil en la siguiente tarea.
 
@@ -3106,7 +3108,7 @@ A la hora de hacer una intersección, es común encontrar una expresión como:
 col("colName") === otherDf("otherCol")
 \end{lstlisting}
 
-La forma para denominar una columna de un DataFrame que se observa en la segunda parte de la comparación no está permitida en Python, y por tanto debemos cambiarla a otra como:
+La forma para denominar una columna de un \texttt{DataFrame} que se observa en la segunda parte de la comparación no está permitida en Python, y por tanto debemos cambiarla a otra como:
 
 \texttt{otherDf.otherCol}
 
@@ -3224,6 +3226,8 @@ A continuación se puede ver el resultado de la query para la temporada 2012:
 	\centering
 \end{figure}
 
+Como se puede observar, el piloto más consistente es Fernando Alonso, con una diferencia entre las vueltas rápidas y todas las vueltas de la temporada de 1.461 segundos. Podemos ver también que el campeón de ese año, Sebastian Vettel, queda en la parte baja de esta clasificación, con una diferencia al primero de casi 6 segundos.
+
 \section{Mejor piloto de la historia}
 
 El objetivo de esta query era claro: intentar averiguar cuál ha sido el mejor piloto de la historia en base a varias métricas, que principalmente se dividen en dos grupos: comparativas con compañeros de equipo y estadísticas individuales. Por norma general se ha tratado de usar estadísticas relativas, es decir, en lugar de hacer un conteo de victorias, se ha hecho el conteo dividido por el número de carreras que en las que ha competido.
@@ -3269,7 +3273,7 @@ Si se aplica esto podemos obtener un resultado como el siguiente:
 
 Para contrastar el resultado podemos ver que todos estos pilotos de una manera u otra han pasado a la historia. En concreto las 6 primeras entradas independientemente del orden que cada uno pueda dar son considerados por muchos los mejores de todos los tiempos.
 
-Además del resultado final podemos fijarnos también en los resultados de cada métrica, ya que en el DataFrame final se muestran tanto los resultados de cada una de ellas como el ranking de todas y el final. Por ilustrar esto, veamos el ranking de pilotos que han dominado a sus compañeros de equipo durante más temporadas a lo largo de su carrera:
+Además del resultado final podemos fijarnos también en los resultados de cada métrica, ya que en el \texttt{DataFrame} final se muestran tanto los resultados de cada una de ellas como el ranking de todas y el final. Por ilustrar esto, veamos el ranking de pilotos que han dominado a sus compañeros de equipo durante más temporadas a lo largo de su carrera:
 
 \begin{figure}[H]
 	\includegraphics[scale=0.3]{results/bestdrivers/driverdomperc.png}
@@ -3293,7 +3297,7 @@ Por poner varios ejemplos de métricas, podemos ver los pilotos con mejor posici
 	\centering
 \end{figure}
 
-O los pilotos con mayor porcentaje de clasificar primeros respecto al número de carreras en las que ha competido:
+O los pilotos con mayor posibilidad de clasificar primeros respecto al número de carreras en las que ha competido:
 
 \begin{figure}[H]
 	\includegraphics[scale=0.3]{results/bestdrivers/polechance.png}
@@ -3332,10 +3336,6 @@ En este caso se buscaba ver cuál ha sido el fabricante con más victorias en ca
 	\label{fig:constdominance}
 	\centering
 \end{figure}
-
-
-Como se puede observar, el piloto más consistente es Fernando Alonso, con una diferencia entre las vueltas rápidas y todas las vueltas de la temporada de 1.461 segundos. Podemos ver también que el campeón de ese año, Sebastian Vettel queda en la parte baja de esta clasificación, con una diferencia al primero de casi 6 segundos.
-
 
 \chapter{Repositorio de Github}
 \label{repo}
