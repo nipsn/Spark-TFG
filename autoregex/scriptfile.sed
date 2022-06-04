@@ -41,6 +41,9 @@ s/(\bwhen\b)\( *(.*(\&|\|).*) *,/\1((\2),/g
 s/na\.drop\((.*)\)/na.drop(subset=\1)/g
 s/na.drop(subset=)/na.drop()/g
 
+# fix dropDuplicates
+s/dropDuplicates\((.*)\)/dropDuplicates([\1])/g
+
 # swap na.replace args
 s/na\.replace\([ |\n]*(.*)[ |\n]*,[ |\n]*(.*)[ |\n]*\)/na.replace(\2, \1)/g
 
